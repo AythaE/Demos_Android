@@ -31,4 +31,5 @@ dependencies {
 
     //To use Ion library https://github.com/koush/ion
     compile 'com.koushikdutta.ion:ion:2.+'
+    compile 'com.google.android.gms:play-services-appindexing:8.1.0'
 }

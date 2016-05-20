@@ -8,20 +8,28 @@
     android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
-    app:layout_behavior="@string/appbar_scrolling_view_behavior"
-    tools:context="es.usal.tfg.demos.MainActivity"
-    tools:showIn="@layout/activity_main">
 
 
+   >
+    <!-- app:layout_behavior="@string/appbar_scrolling_view_behavior"
+     tools:context="es.usal.tfg.demos.MainActivity"-->
+    <!-- tools:showIn="@layout/activity_main"-->
 
+    <!--<TextView
+        android:id="@+id/uploadMessage"
+        android:text="Subiendo fotos"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />-->
 
+    <!-- Circular style="?android:attr/progressBarStyleLarge"-->
     <ProgressBar
-        style="?android:attr/progressBarStyleLarge"
-        android:layout_width="wrap_content"
+
+        style="@style/Widget.AppCompat.ProgressBar.Horizontal"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:id="@+id/uploadProgressBarLarge"
-        android:layout_centerHorizontal="true"
-        android:visibility="visible" />
+        android:visibility="visible"
+        android:indeterminate="true"/>
 
 
 

@@ -1,4 +1,5 @@
 package es.usal.tfg.demos;
+import android.app.Dialog;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -6,6 +7,7 @@ import android.os.Environment;
 import android.provider.MediaStore;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
@@ -13,6 +15,9 @@ import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
+import com.google.android.gms.appindexing.Action;
+import com.google.android.gms.appindexing.AppIndex;
+import com.google.android.gms.common.api.GoogleApiClient;
 import com.koushikdutta.async.future.Future;
 import com.koushikdutta.async.future.FutureCallback;
 import com.koushikdutta.ion.Ion;
@@ -25,8 +30,8 @@ public class MainActivity extends AppCompatActivity {
 
     private static final int REQUEST_IMAGE_CAPTURE = 1;
     private static final String TAG = "Demos";
-    private static final String IP ="192.168.0.13";     //Change this constant with the ip of the server
-    private static final String SERVER_ADDR = "http://"+IP+":8080/Demos_Rest/rest/files/upload";
+    private static final String IP = "192.168.0.13";     //Change this constant with the ip of the server
+    private static final String SERVER_ADDR = "http://" + IP + ":8080/Demos_Rest/rest/files/upload";
     private static Uri photoFilePath;
     private static File photoFile;
 
@@ -34,8 +39,15 @@ public class MainActivity extends AppCompatActivity {
     private static Future<String> upload;
     private ProgressBar uploadPBar;
     /**
+     * ATTENTION: This was auto-generated to implement the App Indexing API.
+     * See https://g.co/AppIndexing/AndroidStudio for more information.
+     */
+    private GoogleApiClient client;
+
+    /**
      * Reference : http://developer.android.com/intl/es/guide/topics/media/camera.html
      * Reference : http://developer.android.com/intl/es/training/camera/photobasics.html
+     *
      * @param savedInstanceState
      */
     @Override
@@ -45,32 +57,37 @@ public class MainActivity extends AppCompatActivity {
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        uploadPBar = (ProgressBar) findViewById(R.id.uploadProgressBarLarge);
-        if (upload != null && !upload.isCancelled() && !upload.isDone())
-        {
+        //uploadPBar = (ProgressBar) findViewById(R.id.uploadProgressBarLarge);
+        if (upload != null && !upload.isCancelled() && !upload.isDone()) {
             //An upload is actually running so the progress bar must be shown
-            uploadPBar.setVisibility(View.VISIBLE);
+           // uploadPBar.setVisibility(View.VISIBLE);
             Log.d(TAG, "upload != null");
-        }
-        else{
+        } else {
 
-
+            /*
             uploadPBar.setProgress(0);
             uploadPBar.setVisibility(View.INVISIBLE);
-            Log.d(TAG,"upload = null");
+            Log.d(TAG, "upload = null");
+            */
 
         }
+
+
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 Log.d(TAG, "Entrando en onClick");
+
                 dispatchTakePictureIntent();
             }
         });
 
         Log.d(TAG, "Activity created successfully");
+        // ATTENTION: This was auto-generated to implement the App Indexing API.
+        // See https://g.co/AppIndexing/AndroidStudio for more information.
+        client = new GoogleApiClient.Builder(this).addApi(AppIndex.API).build();
     }
 
     private void dispatchTakePictureIntent() {
@@ -78,8 +95,7 @@ public class MainActivity extends AppCompatActivity {
 
         Log.d(TAG, "entrando en dispatchTakePicture");
         //Checks if there is a camera application that can take the intent
-        if (takePictureIntent.resolveActivity(getPackageManager()) != null)
-        {
+        if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
             Log.d(TAG, "Hay aplicacion capaz de manejar el intent");
             photoFilePath = getOutputMediaFileUri();
             //continue only if the file is created
@@ -88,18 +104,20 @@ public class MainActivity extends AppCompatActivity {
                 startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
             }
 
-        }
-        else
+        } else
             Log.d(TAG, "NO hay aplicacion capaz de manejar el intent");
     }
 
-    /** Returns the URi of for saving the photo */
-    private Uri getOutputMediaFileUri()
-    {
+    /**
+     * Returns the URi of for saving the photo
+     */
+    private Uri getOutputMediaFileUri() {
         return Uri.fromFile(getOutputMediaFile());
     }
 
-    /** Creates the FIle for the photo */
+    /**
+     * Creates the FIle for the photo
+     */
     private File getOutputMediaFile() {
 
 
@@ -115,8 +133,8 @@ public class MainActivity extends AppCompatActivity {
             photoStorageDir = new File(getExternalFilesDir(Environment.DIRECTORY_PICTURES), TAG);
 
             //creates the directory if doesn't exist
-            if (! photoStorageDir.exists())
-                if (! photoStorageDir.mkdirs()){
+            if (!photoStorageDir.exists())
+                if (!photoStorageDir.mkdirs()) {
                     Log.d(TAG, "Failed to create photo directory");
                     return null;
                 }
@@ -127,22 +145,21 @@ public class MainActivity extends AppCompatActivity {
             photoFile = new File(photoStorageDir.getPath() + File.separator + "DNI_" + timeStamp + ".jpg");
 
             return photoFile;
-        }
-        else
+        } else
             return null;
     }
 
     /**
      * Method invoked when the photo intent returns
-     *
+     * <p>
      * Reference for the upload: https://github.com/koush/ion
      */
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 
 
-        if (requestCode == REQUEST_IMAGE_CAPTURE ) {
-            View layout =  findViewById(R.id.coordinator_layout);
+        if (requestCode == REQUEST_IMAGE_CAPTURE) {
+            View layout = findViewById(R.id.coordinator_layout);
 
 
             if (resultCode == RESULT_OK) {
@@ -153,26 +170,35 @@ public class MainActivity extends AppCompatActivity {
                 uploadFile();
 
 
-            }
-            else if (resultCode == RESULT_CANCELED) {
+            } else if (resultCode == RESULT_CANCELED) {
                 //User cancelled the image capture
-            }
-            else{
+            } else {
                 //Something goes wrong so advise the user
-                Snackbar.make(layout,  "Error tomando la imagen", Snackbar.LENGTH_LONG).show();
+                Snackbar.make(layout, "Error tomando la imagen", Snackbar.LENGTH_LONG).show();
             }
 
         }
     }
 
     private void uploadFile() {
+
+        /**
+         * @Reference http://androidexample.com/Custom_Dialog_-_Android_Example/index.php?view=article_discription&aid=88&aaid=111
+         */
+        final Dialog UploadDialog = new Dialog(MainActivity.this);
+        UploadDialog.setContentView(R.layout.content_main);
+        UploadDialog.setTitle("Subiendo fotos");
+
+        UploadDialog.show();
+
         if (upload != null && !upload.isCancelled() && !upload.isDone()) {
             resetUpload();
             return;
         }
-        uploadPBar.setVisibility(View.VISIBLE);
+        // uploadPBar.setVisibility(View.VISIBLE);
 
-        photoFile=new File(photoFilePath.getPath());
+
+        photoFile = new File(photoFilePath.getPath());
 
         upload = Ion.with(MainActivity.this)
                 .load(SERVER_ADDR)
@@ -182,6 +208,7 @@ public class MainActivity extends AppCompatActivity {
                 .setMultipartFile("file", photoFile)
                 .asString()
                 .setCallback(new FutureCallback<String>() {
+
                     @Override
                     public void onCompleted(Exception e, String result) {
 
@@ -195,8 +222,10 @@ public class MainActivity extends AppCompatActivity {
                             Toast.makeText(MainActivity.this, "Foto subida correctamente al servidor", Toast.LENGTH_LONG).show();
 
                         }
+                        UploadDialog.dismiss();
                         deletePhoto();
                         resetUpload();
+
                     }
                 });
     }
@@ -204,20 +233,59 @@ public class MainActivity extends AppCompatActivity {
     /**
      * Method used to cancel pending uploads and reset progressbar after / before an upload
      */
-    private void resetUpload()
-    {
+    private void resetUpload() {
         //To cancel pending uploads
         upload.cancel();
-        upload=null;
-
+        upload = null;
+        /*
         uploadPBar.setProgress(0);
         uploadPBar.setVisibility(View.INVISIBLE);
+        */
     }
 
-    private void deletePhoto()
-    {
-        if (!photoFile.delete())
+    private void deletePhoto() {
+        if (photoFile != null && photoFile.exists() && !photoFile.delete())
             Log.d(TAG, "Error borrando foto");
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+
+        // ATTENTION: This was auto-generated to implement the App Indexing API.
+        // See https://g.co/AppIndexing/AndroidStudio for more information.
+        client.connect();
+        Action viewAction = Action.newAction(
+                Action.TYPE_VIEW, // TODO: choose an action type.
+                "Main Page", // TODO: Define a title for the content shown.
+                // TODO: If you have web page content that matches this app activity's content,
+                // make sure this auto-generated web page URL is correct.
+                // Otherwise, set the URL to null.
+                Uri.parse("http://host/path"),
+                // TODO: Make sure this auto-generated app URL is correct.
+                Uri.parse("android-app://es.usal.tfg.demos/http/host/path")
+        );
+        AppIndex.AppIndexApi.start(client, viewAction);
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+
+        // ATTENTION: This was auto-generated to implement the App Indexing API.
+        // See https://g.co/AppIndexing/AndroidStudio for more information.
+        Action viewAction = Action.newAction(
+                Action.TYPE_VIEW, // TODO: choose an action type.
+                "Main Page", // TODO: Define a title for the content shown.
+                // TODO: If you have web page content that matches this app activity's content,
+                // make sure this auto-generated web page URL is correct.
+                // Otherwise, set the URL to null.
+                Uri.parse("http://host/path"),
+                // TODO: Make sure this auto-generated app URL is correct.
+                Uri.parse("android-app://es.usal.tfg.demos/http/host/path")
+        );
+        AppIndex.AppIndexApi.end(client, viewAction);
+        client.disconnect();
     }
     /*
     @Override
