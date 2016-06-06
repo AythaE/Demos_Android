@@ -1,4 +1,11 @@
 <resources>
     <string name="app_name">Demos</string>
     <string name="action_settings">Settings</string>
+    <string name="upload_dialog_title">Subiendo las fotos</string>
+    <string name="toastMakeFrontPhoto">Haga una foto de la parte frontal del DNI.</string>
+    <string name="toastMakeBackPhoto">Ahora, haga una foto de la parte trasera del DNI.</string>
+    <string name="toastWrongUploadingResult">Error subiendo las fotos al servidor,\nintentelo de nuevo más tarde</string>
+    <string name="toastCorrectUploadingResult">Fotos subidas correctamente al servidor</string>
+
+
 </resources>

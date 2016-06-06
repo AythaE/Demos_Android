@@ -12,7 +12,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.View;
-import android.widget.ProgressBar;
+import android.view.Window;
 import android.widget.Toast;
 
 import com.google.android.gms.appindexing.Action;
@@ -21,6 +21,8 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.koushikdutta.async.future.Future;
 import com.koushikdutta.async.future.FutureCallback;
 import com.koushikdutta.ion.Ion;
+import com.koushikdutta.ion.Response;
+import com.koushikdutta.ion.builder.Builders;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -30,14 +32,19 @@ public class MainActivity extends AppCompatActivity {
 
     private static final int REQUEST_IMAGE_CAPTURE = 1;
     private static final String TAG = "Demos";
-    private static final String IP = "192.168.0.13";     //Change this constant with the ip of the server
+    private static final String IP = "prodiasv08.fis.usal.es";     //Change this constant with the ip of the server
     private static final String SERVER_ADDR = "http://" + IP + ":8080/Demos_Rest/rest/files/upload";
-    private static Uri photoFilePath;
-    private static File photoFile;
+    private static final int CONNECTION_TIMEOUT = 50;
+
+
+    private static Uri photoFilePathFront, photoFilePathBack;
+    private static File photoFileFront, photoFileBack;
+
 
     //Statics fields to try to avoid orientations change bugs (because of recreation of the activity)
-    private static Future<String> upload;
-    private ProgressBar uploadPBar;
+    private static Future<Response<String>> upload;
+    private static AlertDialog UploadDialog;
+    private static boolean showingUploadDialog = false;
     /**
      * ATTENTION: This was auto-generated to implement the App Indexing API.
      * See https://g.co/AppIndexing/AndroidStudio for more information.
@@ -57,18 +64,12 @@ public class MainActivity extends AppCompatActivity {
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        //uploadPBar = (ProgressBar) findViewById(R.id.uploadProgressBarLarge);
         if (upload != null && !upload.isCancelled() && !upload.isDone()) {
             //An upload is actually running so the progress bar must be shown
            // uploadPBar.setVisibility(View.VISIBLE);
             Log.d(TAG, "upload != null");
         } else {
-
-            /*
-            uploadPBar.setProgress(0);
-            uploadPBar.setVisibility(View.INVISIBLE);
-            Log.d(TAG, "upload = null");
-            */
+            //TODO comprobar que pasa al girar pantalla durante subida
 
         }
 
@@ -80,9 +81,27 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View view) {
                 Log.d(TAG, "Entrando en onClick");
 
+                resetPhotoTaking();
+
                 dispatchTakePictureIntent();
+                //If front Photo is a succeed take back photo, else reset all
+               /* TODO if(succeedPhoto) {
+                    Log.d(TAG, "Exito tomando foto delantera, ahora se tomara la trasera");
+                    dispatchTakePictureIntent();
+                }
+                else{
+                    resetPhotoTaking();
+                }
+                */
             }
         });
+
+        UploadDialog = new AlertDialog.Builder(MainActivity.this).create();
+
+        UploadDialog.setView(getLayoutInflater().inflate(R.layout.content_main, null));
+        UploadDialog.setTitle(R.string.upload_dialog_title);
+        UploadDialog.setCancelable(false);
+        UploadDialog.setCanceledOnTouchOutside(false);
 
         Log.d(TAG, "Activity created successfully");
         // ATTENTION: This was auto-generated to implement the App Indexing API.
@@ -97,12 +116,27 @@ public class MainActivity extends AppCompatActivity {
         //Checks if there is a camera application that can take the intent
         if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
             Log.d(TAG, "Hay aplicacion capaz de manejar el intent");
-            photoFilePath = getOutputMediaFileUri();
-            //continue only if the file is created
-            if (photoFilePath != null) {
-                takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoFilePath);
-                startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
+            if (photoFilePathFront == null)
+            {
+                Toast.makeText(MainActivity.this, R.string.toastMakeFrontPhoto, Toast.LENGTH_LONG).show();
+                photoFilePathFront = getOutputMediaFileUri();
+                //continue only if the file is created
+                if (photoFilePathFront != null) {
+                    takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoFilePathFront);
+                    startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
+                }
             }
+            else if (photoFilePathBack == null)
+            {
+                Toast.makeText(MainActivity.this, R.string.toastMakeBackPhoto, Toast.LENGTH_LONG).show();
+                photoFilePathBack = getOutputMediaFileUri();
+                //continue only if the file is created
+                if (photoFilePathBack != null) {
+                    takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoFilePathBack);
+                    startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
+                }
+            }
+
 
         } else
             Log.d(TAG, "NO hay aplicacion capaz de manejar el intent");
@@ -163,12 +197,17 @@ public class MainActivity extends AppCompatActivity {
 
 
             if (resultCode == RESULT_OK) {
+                Log.d(TAG, "Exito tomando una foto");
 
+                if (photoFilePathFront !=null && photoFilePathBack == null) {
+                    dispatchTakePictureIntent();
+                }
 
                 //The image was taken correctly so
                 //Now upload the image to the server
-                uploadFile();
-
+                else if (photoFilePathFront != null && photoFilePathBack != null) {
+                    uploadFile();
+                }
 
             } else if (resultCode == RESULT_CANCELED) {
                 //User cancelled the image capture
@@ -185,9 +224,8 @@ public class MainActivity extends AppCompatActivity {
         /**
          * @Reference http://androidexample.com/Custom_Dialog_-_Android_Example/index.php?view=article_discription&aid=88&aaid=111
          */
-        final Dialog UploadDialog = new Dialog(MainActivity.this);
-        UploadDialog.setContentView(R.layout.content_main);
-        UploadDialog.setTitle("Subiendo fotos");
+
+
 
         UploadDialog.show();
 
@@ -195,34 +233,39 @@ public class MainActivity extends AppCompatActivity {
             resetUpload();
             return;
         }
-        // uploadPBar.setVisibility(View.VISIBLE);
 
 
-        photoFile = new File(photoFilePath.getPath());
+
+        photoFileFront = new File(photoFilePathFront.getPath());
+        photoFileBack = new File(photoFilePathBack.getPath());
 
         upload = Ion.with(MainActivity.this)
                 .load(SERVER_ADDR)
-                .setTimeout(15 * 1000) //15 seconds
+                .setTimeout(CONNECTION_TIMEOUT * 1000) //15 seconds
                 .setLogging(TAG + " upload", Log.DEBUG)
-                .progressBar(uploadPBar)
-                .setMultipartFile("file", photoFile)
+                .setMultipartFile("front", photoFileFront)
+                .setMultipartFile("back", photoFileBack)
                 .asString()
-                .setCallback(new FutureCallback<String>() {
+                .withResponse()
+                .setCallback(new FutureCallback<Response<String>>() {
 
                     @Override
-                    public void onCompleted(Exception e, String result) {
+                    public void onCompleted(Exception e, Response<String> result) {
 
 
-                        if (e != null) {
-                            Toast.makeText(MainActivity.this, "Error subiendo la foto al servidor,\nintentelo de nuevo más tarde", Toast.LENGTH_LONG).show();
+                        if (e != null || result.getHeaders().code() != 200) {
+                            Toast.makeText(MainActivity.this, R.string.toastWrongUploadingResult, Toast.LENGTH_LONG).show();
 
-                            Log.d(TAG, e.getMessage());
+                            if (e!= null)
+                                Log.d(TAG, e.getMessage());
                         } else {
 
-                            Toast.makeText(MainActivity.this, "Foto subida correctamente al servidor", Toast.LENGTH_LONG).show();
+                            Toast.makeText(MainActivity.this, R.string.toastCorrectUploadingResult, Toast.LENGTH_LONG).show();
 
                         }
-                        UploadDialog.dismiss();
+                        if (UploadDialog.isShowing())
+                            UploadDialog.dismiss();
+                        resetPhotoTaking();
                         deletePhoto();
                         resetUpload();
 
@@ -235,7 +278,10 @@ public class MainActivity extends AppCompatActivity {
      */
     private void resetUpload() {
         //To cancel pending uploads
+
+
         upload.cancel();
+
         upload = null;
         /*
         uploadPBar.setProgress(0);
@@ -243,8 +289,15 @@ public class MainActivity extends AppCompatActivity {
         */
     }
 
+    private void resetPhotoTaking ()
+    {
+        photoFileBack =null;
+        photoFilePathBack = null;
+        photoFilePathFront=null;
+        photoFileFront=null;
+    }
     private void deletePhoto() {
-        if (photoFile != null && photoFile.exists() && !photoFile.delete())
+        if (photoFileFront != null && photoFileFront.exists() && !photoFileFront.delete())
             Log.d(TAG, "Error borrando foto");
     }
 
@@ -286,6 +339,25 @@ public class MainActivity extends AppCompatActivity {
         );
         AppIndex.AppIndexApi.end(client, viewAction);
         client.disconnect();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (showingUploadDialog)
+        {
+            UploadDialog.show();
+            showingUploadDialog = false;
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (UploadDialog.isShowing()) {
+            UploadDialog.dismiss();
+            showingUploadDialog = true;
+        }
     }
     /*
     @Override
