@@ -1,6 +1,8 @@
 package es.usal.tfg.demos;
 import android.app.Dialog;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
@@ -11,6 +13,8 @@ import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.Window;
 import android.widget.Toast;
@@ -20,25 +24,41 @@ import com.google.android.gms.appindexing.AppIndex;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.koushikdutta.async.future.Future;
 import com.koushikdutta.async.future.FutureCallback;
+import com.koushikdutta.async.http.AsyncSSLSocketMiddleware;
 import com.koushikdutta.ion.Ion;
 import com.koushikdutta.ion.Response;
 import com.koushikdutta.ion.builder.Builders;
 
 import java.io.File;
+import java.io.InputStream;
+import java.security.KeyStore;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509TrustManager;
 
 public class MainActivity extends AppCompatActivity {
 
     private static final int REQUEST_IMAGE_CAPTURE = 1;
-    private static final String TAG = "Demos";
+    public static final String TAG = "Demos";
     private static final String IP = "prodiasv08.fis.usal.es";     //Change this constant with the ip of the server
-    private static final String SERVER_ADDR = "http://" + IP + ":8080/Demos_Rest/rest/files/upload";
+    public static final String SERVER_ADDR ="https://" + IP + ":443/Demos_Rest/rest";
+
     private static final int CONNECTION_TIMEOUT = 50;
 
 
     private static Uri photoFilePathFront, photoFilePathBack;
     private static File photoFileFront, photoFileBack;
+
 
 
     //Statics fields to try to avoid orientations change bugs (because of recreation of the activity)
@@ -61,7 +81,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar_main);
         setSupportActionBar(toolbar);
 
         if (upload != null && !upload.isCancelled() && !upload.isDone()) {
@@ -73,8 +93,8 @@ public class MainActivity extends AppCompatActivity {
 
         }
 
-
-
+        trustServerCertificate();
+        Log.d(TAG, "Certificado añadido");
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -98,17 +118,114 @@ public class MainActivity extends AppCompatActivity {
 
         UploadDialog = new AlertDialog.Builder(MainActivity.this).create();
 
-        UploadDialog.setView(getLayoutInflater().inflate(R.layout.content_main, null));
+        UploadDialog.setView(getLayoutInflater().inflate(R.layout.uploading_dialog, null));
         UploadDialog.setTitle(R.string.upload_dialog_title);
-        UploadDialog.setCancelable(false);
+        UploadDialog.setCancelable(true);
         UploadDialog.setCanceledOnTouchOutside(false);
 
+        UploadDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
+            @Override
+            public void onCancel(DialogInterface dialog) {
+                if (upload.cancel())
+                {
+                    Log.d(TAG, "subida cancelada por usuario");
+                }
+                else
+                {
+                    Log.e(TAG, "ERROR cancelando subida");
+                }
+
+                showingUploadDialog = false;
+            }
+        });
         Log.d(TAG, "Activity created successfully");
         // ATTENTION: This was auto-generated to implement the App Indexing API.
         // See https://g.co/AppIndexing/AndroidStudio for more information.
         client = new GoogleApiClient.Builder(this).addApi(AppIndex.API).build();
     }
 
+    private void trustServerCertificate()
+    {
+        try {
+            CertificateFactory cf = CertificateFactory.getInstance("X.509");
+            //Load cert file stored in \app\src\main\res\raw
+            InputStream caInput = getResources().openRawResource(R.raw.server_ca); //TODO Seleccionar el certificado correcto
+
+            Certificate ca = cf.generateCertificate(caInput);
+            caInput.close();
+            // Create a KeyStore containing our trusted CAs
+            String keyStoreType = KeyStore.getDefaultType();
+            KeyStore keyStore = KeyStore.getInstance(keyStoreType);
+            keyStore.load(null, null);
+            keyStore.setCertificateEntry("ca", ca);
+
+            // Create a TrustManager that trusts the CAs in our KeyStore
+            String tmfAlgorithm = TrustManagerFactory.getDefaultAlgorithm();
+            TrustManagerFactory tmf = TrustManagerFactory.getInstance(tmfAlgorithm);
+            tmf.init(keyStore);
+
+            TrustManager[] wrappedTrustManagers = getWrappedTrustManagers(tmf.getTrustManagers());
+
+            // Create an SSLContext that uses our TrustManager
+            SSLContext sslContext = SSLContext.getInstance("TLS");
+            sslContext.init(null, wrappedTrustManagers, null);
+            //sslContext.init(null, tmf.getTrustManagers(), null);
+
+            AsyncSSLSocketMiddleware sslMiddleWare = Ion.getDefault(this).getHttpClient().getSSLSocketMiddleware();
+            sslMiddleWare.setTrustManagers(wrappedTrustManagers);
+            //sslMiddleWare.setHostnameVerifier(getHostnameVerifier());
+            sslMiddleWare.setSSLContext(sslContext);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private HostnameVerifier getHostnameVerifier() {
+        return new HostnameVerifier() {
+            @Override
+            public boolean verify(String hostname, SSLSession session) {
+                return true;
+                // or the following:
+                // HostnameVerifier hv = HttpsURLConnection.getDefaultHostnameVerifier();
+                // return hv.verify("www.yourserver.com", session);
+            }
+        };
+    }
+    private TrustManager[] getWrappedTrustManagers(TrustManager[] trustManagers) {
+        final X509TrustManager originalTrustManager = (X509TrustManager) trustManagers[0];
+        return new TrustManager[]{
+                new X509TrustManager() {
+                    public X509Certificate[] getAcceptedIssuers() {
+                        return originalTrustManager.getAcceptedIssuers();
+                    }
+
+                    public void checkClientTrusted(X509Certificate[] certs, String authType) {
+                        try {
+                            if (certs != null && certs.length > 0){
+                                certs[0].checkValidity();
+                            } else {
+                                originalTrustManager.checkClientTrusted(certs, authType);
+                            }
+                        } catch (CertificateException e) {
+                            Log.w("checkClientTrusted", e.toString());
+                        }
+                    }
+
+                    public void checkServerTrusted(X509Certificate[] certs, String authType) {
+                        try {
+                            if (certs != null && certs.length > 0){
+                                certs[0].checkValidity();
+                            } else {
+                                originalTrustManager.checkServerTrusted(certs, authType);
+                            }
+                        } catch (CertificateException e) {
+                            Log.w("checkServerTrusted", e.toString());
+                        }
+                    }
+                }
+        };
+    }
     private void dispatchTakePictureIntent() {
         Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
 
@@ -122,7 +239,9 @@ public class MainActivity extends AppCompatActivity {
                 photoFilePathFront = getOutputMediaFileUri();
                 //continue only if the file is created
                 if (photoFilePathFront != null) {
+
                     takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoFilePathFront);
+                    takePictureIntent.putExtra(MediaStore.EXTRA_SCREEN_ORIENTATION, ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
                     startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
                 }
             }
@@ -132,7 +251,9 @@ public class MainActivity extends AppCompatActivity {
                 photoFilePathBack = getOutputMediaFileUri();
                 //continue only if the file is created
                 if (photoFilePathBack != null) {
+
                     takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoFilePathBack);
+                    takePictureIntent.putExtra(MediaStore.EXTRA_SCREEN_ORIENTATION, ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
                     startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
                 }
             }
@@ -206,6 +327,7 @@ public class MainActivity extends AppCompatActivity {
                 //The image was taken correctly so
                 //Now upload the image to the server
                 else if (photoFilePathFront != null && photoFilePathBack != null) {
+
                     uploadFile();
                 }
 
@@ -239,9 +361,10 @@ public class MainActivity extends AppCompatActivity {
         photoFileFront = new File(photoFilePathFront.getPath());
         photoFileBack = new File(photoFilePathBack.getPath());
 
-        upload = Ion.with(MainActivity.this)
-                .load(SERVER_ADDR)
-                .setTimeout(CONNECTION_TIMEOUT * 1000) //15 seconds
+        String uploadURL = SERVER_ADDR + "/files/upload";
+        upload = Ion.with(this)
+                .load(uploadURL)
+                .setTimeout(CONNECTION_TIMEOUT * 1000) //50 seconds
                 .setLogging(TAG + " upload", Log.DEBUG)
                 .setMultipartFile("front", photoFileFront)
                 .setMultipartFile("back", photoFileBack)
@@ -254,10 +377,21 @@ public class MainActivity extends AppCompatActivity {
 
 
                         if (e != null || result.getHeaders().code() != 200) {
-                            Toast.makeText(MainActivity.this, R.string.toastWrongUploadingResult, Toast.LENGTH_LONG).show();
 
-                            if (e!= null)
-                                Log.d(TAG, e.getMessage());
+
+                            if (upload.isCancelled())
+                            {
+                                Toast.makeText(MainActivity.this, R.string.toastCanceledResult, Toast.LENGTH_LONG).show();
+                            }
+                            else{
+                                Toast.makeText(MainActivity.this, R.string.toastWrongUploadingResult, Toast.LENGTH_LONG).show();
+                            }
+
+                            if (e!= null) {
+
+                                e.printStackTrace();
+
+                            }
                         } else {
 
                             Toast.makeText(MainActivity.this, R.string.toastCorrectUploadingResult, Toast.LENGTH_LONG).show();
@@ -271,6 +405,8 @@ public class MainActivity extends AppCompatActivity {
 
                     }
                 });
+
+
     }
 
     /**
@@ -283,6 +419,8 @@ public class MainActivity extends AppCompatActivity {
         upload.cancel();
 
         upload = null;
+
+        //deletePhoto();
         /*
         uploadPBar.setProgress(0);
         uploadPBar.setVisibility(View.INVISIBLE);
@@ -297,8 +435,13 @@ public class MainActivity extends AppCompatActivity {
         photoFileFront=null;
     }
     private void deletePhoto() {
+        //TODO borrar foto trasera
         if (photoFileFront != null && photoFileFront.exists() && !photoFileFront.delete())
-            Log.d(TAG, "Error borrando foto");
+            Log.d(TAG, "Error borrando foto frontal");
+
+        if (photoFileBack != null && photoFileBack.exists() && !photoFileBack.delete())
+            Log.d(TAG, "Error borrando foto frontal");
+
     }
 
     @Override
@@ -359,7 +502,7 @@ public class MainActivity extends AppCompatActivity {
             showingUploadDialog = true;
         }
     }
-    /*
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
@@ -381,5 +524,5 @@ public class MainActivity extends AppCompatActivity {
 
         return super.onOptionsItemSelected(item);
     }
-    */
+
 }
