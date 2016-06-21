@@ -275,6 +275,7 @@ public class MainActivity extends AppCompatActivity {
      */
     private File getOutputMediaFile() {
 
+        //TODO si no tiene tarjeta sd que
 
         if (Environment.getExternalStorageState().equalsIgnoreCase(Environment.MEDIA_MOUNTED)) {
 

@@ -3,6 +3,7 @@ package es.usal.tfg.demos;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.TargetApi;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.support.v7.app.AlertDialog;
@@ -12,6 +13,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.support.v7.widget.Toolbar;
 import android.text.TextUtils;
+import android.util.Base64;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
@@ -25,10 +27,19 @@ import android.widget.Toast;
 import com.koushikdutta.async.future.Future;
 import com.koushikdutta.async.future.FutureCallback;
 import com.koushikdutta.async.http.AsyncSSLSocketMiddleware;
+import com.koushikdutta.async.util.Charsets;
 import com.koushikdutta.ion.Ion;
 import com.koushikdutta.ion.Response;
 
+import java.io.BufferedWriter;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.nio.charset.Charset;
 import java.security.KeyStore;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
@@ -74,6 +85,7 @@ public class RegisterActivity extends AppCompatActivity {
         mCampaignView = (EditText) findViewById(R.id.campaign_register);
 
 
+
         mPasswordView = (EditText) findViewById(R.id.password_register);
 
         mPasswordView2 = (EditText) findViewById(R.id.password_register_repeat);
@@ -98,6 +110,8 @@ public class RegisterActivity extends AppCompatActivity {
 
         mLoginFormView = findViewById(R.id.scroll_register_form);
         mProgressView = findViewById(R.id.login_progress);
+
+        Log.d(MainActivity.TAG, "Entrando en RegisterAtivity");
     }
 
 
@@ -178,51 +192,14 @@ public class RegisterActivity extends AppCompatActivity {
 
     private boolean isCampaignValid(String campaign) {
         //TODO: Replace this with your own logic
-        return true;
+
+        return  campaign.length() >= 2 && campaign.matches("^[a-zA-Z0-9]+[a-zA-Z0-9\\._-]*$");
     }
 
     private boolean isPasswordValid(String password) {
         //TODO: Replace this with your own logic
-        return password.length() >= 8;
+        return password.length() >= 8 && password.matches("^[a-zA-Z0-9\\.\\*#%&()=+:;,<>_!?-]*$");
     }
-
-    /**
-     * Shows the progress UI and hides the login form.
-     */
-    @TargetApi(Build.VERSION_CODES.HONEYCOMB_MR2)
-    private void showProgress(final boolean show) {
-        // On Honeycomb MR2 we have the ViewPropertyAnimator APIs, which allow
-        // for very easy animations. If available, use these APIs to fade-in
-        // the progress spinner.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR2) {
-            int shortAnimTime = getResources().getInteger(android.R.integer.config_shortAnimTime);
-
-            mLoginFormView.setVisibility(show ? View.GONE : View.VISIBLE);
-            mLoginFormView.animate().setDuration(shortAnimTime).alpha(
-                    show ? 0 : 1).setListener(new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                    mLoginFormView.setVisibility(show ? View.GONE : View.VISIBLE);
-                }
-            });
-
-            mProgressView.setVisibility(show ? View.VISIBLE : View.GONE);
-            mProgressView.animate().setDuration(shortAnimTime).alpha(
-                    show ? 1 : 0).setListener(new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                    mProgressView.setVisibility(show ? View.VISIBLE : View.GONE);
-                }
-            });
-        } else {
-            // The ViewPropertyAnimator APIs are not available, so simply show
-            // and hide the relevant UI components.
-            mProgressView.setVisibility(show ? View.VISIBLE : View.GONE);
-            mLoginFormView.setVisibility(show ? View.GONE : View.VISIBLE);
-        }
-    }
-
-
 
 
 
@@ -237,18 +214,19 @@ public class RegisterActivity extends AppCompatActivity {
         private final String mPassword;
         private final AlertDialog registerDialog;
 
+        private String toastMessage;
         public boolean isRegisterSucceed() {
             return registerSucceed;
         }
 
-        public void setRegisterSucceed(boolean regSussceed) {
-            this.registerSucceed = regSussceed;
+        public void setRegisterSucceed(boolean regSuscceed) {
+            this.registerSucceed = regSuscceed;
         }
 
         private boolean registerSucceed = false;
 
-        UserRegisterTask(String email, String password) {
-            mCampaign = email;
+        UserRegisterTask(String campaign, String password) {
+            mCampaign = campaign;
             mPassword = password;
 
             registerDialog = new AlertDialog.Builder(RegisterActivity.this).create();
@@ -267,9 +245,10 @@ public class RegisterActivity extends AppCompatActivity {
             registerDialog.show();
         }
 
+
         @Override
         protected Boolean doInBackground(Void... params) {
-            // TODO: attempt authentication against a network service.
+
 
             String serverRegister = MainActivity.SERVER_ADDR + "/campaign/register";
             trustServerCertificate();
@@ -278,12 +257,15 @@ public class RegisterActivity extends AppCompatActivity {
 
 
             try {
+                String campaignB64 = Base64.encodeToString(mCampaign.getBytes("UTF-8"), Base64.NO_WRAP);
+                String passwordB64 = Base64.encodeToString(mPassword.getBytes("UTF-8"), Base64.NO_WRAP);
+
                 registerResp = Ion.with(RegisterActivity.this)
                         .load(serverRegister)
                         .setTimeout(CONNECTION_TIMEOUT * 1000)
                         .setLogging(MainActivity.TAG + " register", Log.DEBUG)
-                        .setBodyParameter("campaign", mCampaign)
-                        .setBodyParameter("password", mPassword)
+                        .setBodyParameter("campaign", campaignB64)
+                        .setBodyParameter("password", passwordB64)
                         .asString()
                         .withResponse()
                         .get();
@@ -294,24 +276,36 @@ public class RegisterActivity extends AppCompatActivity {
             } catch (ExecutionException e) {
                 checkResponse(e);
             }
+            catch (UnsupportedEncodingException e) {
+                checkResponse(e);
+            }
             return isRegisterSucceed();
         }
         private void checkResponse(Exception e)
         {
-            registerDialog.dismiss();
             if (e != null || ( registerResp != null && registerResp.getHeaders().code() != 200)) {
 
 
 
                 //TODO leer error response
-                Log.d(MainActivity.TAG + "response message",registerResp.getHeaders().message());
+                Log.d(MainActivity.TAG + " response message",registerResp.getHeaders().message());
                 if (e!= null) {
                     e.printStackTrace();
+                }
+                if (registerResp != null && (400 <= registerResp.getHeaders().code()) &&
+                        (500 > registerResp.getHeaders().code()))
+                {
+                    byte [] datos = Base64.decode( registerResp.getResult(),Base64.NO_WRAP);
+                    toastMessage = new String(datos);
+                }
+                else
+                {
+                    toastMessage = getString(R.string.toastWrongRegisterResult);
                 }
                 setRegisterSucceed(false);
             } else {
 
-
+                toastMessage = getString(R.string.toastCorrectRegisterResult);
                 setRegisterSucceed(true);
 
 
@@ -325,25 +319,68 @@ public class RegisterActivity extends AppCompatActivity {
             if(isCancelled())
                 cancelTask();
             else {
+                Toast.makeText(RegisterActivity.this, toastMessage, Toast.LENGTH_LONG).show();
+
                 if (success) {
-                    Toast.makeText(RegisterActivity.this, R.string.toastCorrectRegisterResult, Toast.LENGTH_LONG).show();
-                    Log.d(MainActivity.TAG, "Registro correcto");
+                    String token = registerResp.getResult();
+                    saveSessionToken(token);
+                    Log.d(MainActivity.TAG, "registro correcto: " + token);
                     Intent intent = new Intent(RegisterActivity.this, MainActivity.class);
                     startActivity(intent);
                     //TODO http://stackoverflow.com/questions/16419627/making-an-activity-appear-only-once-when-the-app-is-started
                     finish();
                 } else {
-                    Toast.makeText(RegisterActivity.this, R.string.toastWrongRegisterResult, Toast.LENGTH_LONG).show();
-                    Log.d(MainActivity.TAG, "Registro incorrecto");
-
+                    String responseResult = new String(Base64.decode(registerResp.getResult(), Base64.NO_WRAP));
+                    Log.d(MainActivity.TAG + " response message", responseResult);
+                    Log.d(MainActivity.TAG, "registro incorrecto");
                 }
             }
         }
 
-        @Override
+        private void saveSessionToken(String token) {
+
+            FileOutputStream fos = null;
+            BufferedWriter bw = null;
+            try {
+                fos = openFileOutput(".token", Context.MODE_PRIVATE);
+
+                bw = new BufferedWriter(new FileWriter(fos.getFD()));
+                bw.write(mCampaign + "\n");
+                bw.write(token);
+                Log.d(MainActivity.TAG, "Token: "+ token+" escrito en "+getFilesDir().getAbsolutePath());
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (UnsupportedEncodingException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            finally {
+
+                try {
+                    if (bw != null){
+                        bw.flush();
+                        bw.close();
+                    }
+                    if (fos!= null) {
+                        fos.flush();
+                        fos.close();
+                    }
+
+                } catch (IOException e) {}
+
+
+            }
+
+        }
+
         /**
          * @reference http://stackoverflow.com/questions/11165860/asynctask-oncancelled-not-being-called-after-canceltrue/11166026#11166026
+         *
          */
+
+
+        @Override
         protected void onCancelled() {
             cancelTask();
         }
@@ -357,6 +394,7 @@ public class RegisterActivity extends AppCompatActivity {
 
 
     }
+
 
 
     private void trustServerCertificate()
