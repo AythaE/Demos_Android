@@ -15,6 +15,7 @@ import android.support.v7.widget.Toolbar;
 import android.text.TextUtils;
 import android.util.Base64;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -287,16 +288,23 @@ public class RegisterActivity extends AppCompatActivity {
 
 
 
-                //TODO leer error response
-                Log.d(MainActivity.TAG + " response message",registerResp.getHeaders().message());
                 if (e!= null) {
                     e.printStackTrace();
                 }
-                if (registerResp != null && (400 <= registerResp.getHeaders().code()) &&
-                        (500 > registerResp.getHeaders().code()))
-                {
-                    byte [] datos = Base64.decode( registerResp.getResult(),Base64.NO_WRAP);
-                    toastMessage = new String(datos);
+                if (registerResp != null ){
+                    //TODO leer error response
+                    Log.d(MainActivity.TAG + " response message",registerResp.getHeaders().message());
+
+                    if ((400 <= registerResp.getHeaders().code()) &&
+                        (500 > registerResp.getHeaders().code())) {
+
+                        byte[] datos = Base64.decode(registerResp.getResult(), Base64.NO_WRAP);
+                        toastMessage = new String(datos);
+                    }
+                    else
+                    {
+                        toastMessage = getString(R.string.toastWrongRegisterResult);
+                    }
                 }
                 else
                 {
@@ -319,8 +327,13 @@ public class RegisterActivity extends AppCompatActivity {
             if(isCancelled())
                 cancelTask();
             else {
-                Toast.makeText(RegisterActivity.this, toastMessage, Toast.LENGTH_LONG).show();
 
+                Toast t = Toast.makeText(RegisterActivity.this, toastMessage, Toast.LENGTH_LONG);
+                TextView v = (TextView) t.getView().findViewById(android.R.id.message);
+                if (v!=null){
+                    v.setGravity(Gravity.CENTER);
+                }
+                t.show();
                 if (success) {
                     String token = registerResp.getResult();
                     saveSessionToken(token);

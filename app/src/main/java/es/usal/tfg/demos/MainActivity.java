@@ -1,22 +1,27 @@
 package es.usal.tfg.demos;
-import android.app.Dialog;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.pm.ActivityInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Environment;
 import android.provider.MediaStore;
 import android.support.design.widget.FloatingActionButton;
-import android.support.design.widget.Snackbar;
+import android.support.design.widget.NavigationView;
+import android.support.v4.content.FileProvider;
+import android.support.v4.view.GravityCompat;
+import android.support.v4.widget.DrawerLayout;
+import android.support.v7.app.ActionBarDrawerToggle;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.Base64;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.Window;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.appindexing.Action;
@@ -27,9 +32,12 @@ import com.koushikdutta.async.future.FutureCallback;
 import com.koushikdutta.async.http.AsyncSSLSocketMiddleware;
 import com.koushikdutta.ion.Ion;
 import com.koushikdutta.ion.Response;
-import com.koushikdutta.ion.builder.Builders;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
 import java.io.InputStream;
 import java.security.KeyStore;
 import java.security.cert.Certificate;
@@ -38,6 +46,7 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
@@ -46,9 +55,11 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener {
 
     private static final int REQUEST_IMAGE_CAPTURE = 1;
+    private static final String CAPTURE_IMAGE_FILE_PROVIDER = "es.usal.tfg.demos.fileprovider";
+    private static final String PHOTOS_FOLDER="photos";
     public static final String TAG = "Demos";
     private static final String IP = "prodiasv08.fis.usal.es";     //Change this constant with the ip of the server
     public static final String SERVER_ADDR ="https://" + IP + ":443/Demos_Rest/rest";
@@ -63,8 +74,10 @@ public class MainActivity extends AppCompatActivity {
 
     //Statics fields to try to avoid orientations change bugs (because of recreation of the activity)
     private static Future<Response<String>> upload;
-    private static AlertDialog UploadDialog;
+    private static AlertDialog UploadDialog, ResultDialog;
+    private static String resultDialogMessage = "";
     private static boolean showingUploadDialog = false;
+    private static boolean showingResultDialog = false;
     /**
      * ATTENTION: This was auto-generated to implement the App Indexing API.
      * See https://g.co/AppIndexing/AndroidStudio for more information.
@@ -93,8 +106,8 @@ public class MainActivity extends AppCompatActivity {
 
         }
 
-        trustServerCertificate();
-        Log.d(TAG, "Certificado añadido");
+        //trustServerCertificate();
+        //Log.d(TAG, "Certificado añadido");
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -116,6 +129,15 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
+                this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
+        drawer.setDrawerListener(toggle);
+        toggle.syncState();
+
+        NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
+        navigationView.setNavigationItemSelectedListener(this);
+
         UploadDialog = new AlertDialog.Builder(MainActivity.this).create();
 
         UploadDialog.setView(getLayoutInflater().inflate(R.layout.uploading_dialog, null));
@@ -126,7 +148,7 @@ public class MainActivity extends AppCompatActivity {
         UploadDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
             @Override
             public void onCancel(DialogInterface dialog) {
-                if (upload.cancel())
+                if (upload != null && upload.cancel())
                 {
                     Log.d(TAG, "subida cancelada por usuario");
                 }
@@ -138,10 +160,36 @@ public class MainActivity extends AppCompatActivity {
                 showingUploadDialog = false;
             }
         });
+
+
+        ResultDialog = new AlertDialog.Builder(MainActivity.this).setPositiveButton(R.string.result_dialog_button,
+                new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                showingResultDialog = false;
+                resultDialogMessage = "";
+                dialog.dismiss();
+
+            }
+        }).create();
+        ResultDialog.setCancelable(false);
+        ResultDialog.setCanceledOnTouchOutside(false);
+        ResultDialog.setTitle(R.string.result_dialog_title);
+
         Log.d(TAG, "Activity created successfully");
         // ATTENTION: This was auto-generated to implement the App Indexing API.
         // See https://g.co/AppIndexing/AndroidStudio for more information.
         client = new GoogleApiClient.Builder(this).addApi(AppIndex.API).build();
+    }
+
+    @Override
+    public void onBackPressed() {
+        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        if (drawer.isDrawerOpen(GravityCompat.START)) {
+            drawer.closeDrawer(GravityCompat.START);
+        } else {
+            super.onBackPressed();
+        }
     }
 
     private void trustServerCertificate()
@@ -231,29 +279,63 @@ public class MainActivity extends AppCompatActivity {
 
         Log.d(TAG, "entrando en dispatchTakePicture");
         //Checks if there is a camera application that can take the intent
-        if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
+        if (takePictureIntent.resolveActivity(this.getPackageManager()) != null) {
             Log.d(TAG, "Hay aplicacion capaz de manejar el intent");
             if (photoFilePathFront == null)
             {
-                Toast.makeText(MainActivity.this, R.string.toastMakeFrontPhoto, Toast.LENGTH_LONG).show();
+                Toast t = Toast.makeText(MainActivity.this, R.string.toastMakeFrontPhoto, Toast.LENGTH_LONG);
+                TextView v = (TextView) t.getView().findViewById(android.R.id.message);
+                if (v!=null){
+                    v.setGravity(Gravity.CENTER);
+                }
+                t.show();
                 photoFilePathFront = getOutputMediaFileUri();
+                Log.d(TAG, photoFilePathFront.toString());
                 //continue only if the file is created
                 if (photoFilePathFront != null) {
 
                     takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoFilePathFront);
-                    takePictureIntent.putExtra(MediaStore.EXTRA_SCREEN_ORIENTATION, ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+                    /**
+                     * @reference https://medium.com/@a1cooke/using-v4-support-library-fileprovider-and-camera-intent-a45f76879d61#.6wu8mv2ya
+                     */
+                    List<ResolveInfo> resolvedIntentActivities = this.getPackageManager().queryIntentActivities(takePictureIntent, PackageManager.MATCH_DEFAULT_ONLY);
+
+                    for (ResolveInfo resolvedIntentInfo : resolvedIntentActivities) {
+                        String packageName = resolvedIntentInfo.activityInfo.packageName;
+
+                        this.grantUriPermission(packageName, photoFilePathFront, Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    }
+
+
                     startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
                 }
             }
             else if (photoFilePathBack == null)
             {
-                Toast.makeText(MainActivity.this, R.string.toastMakeBackPhoto, Toast.LENGTH_LONG).show();
+                Toast t = Toast.makeText(MainActivity.this, R.string.toastMakeBackPhoto, Toast.LENGTH_LONG);
+                TextView v = (TextView) t.getView().findViewById(android.R.id.message);
+                if (v!=null){
+                    v.setGravity(Gravity.CENTER);
+                }
+                t.show();
                 photoFilePathBack = getOutputMediaFileUri();
+                Log.d(TAG, photoFilePathBack.toString());
                 //continue only if the file is created
                 if (photoFilePathBack != null) {
 
                     takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoFilePathBack);
-                    takePictureIntent.putExtra(MediaStore.EXTRA_SCREEN_ORIENTATION, ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+
+                    /**
+                     * @reference https://medium.com/@a1cooke/using-v4-support-library-fileprovider-and-camera-intent-a45f76879d61#.6wu8mv2ya
+                     */
+                    List<ResolveInfo> resolvedIntentActivities = this.getPackageManager().queryIntentActivities(takePictureIntent, PackageManager.MATCH_DEFAULT_ONLY);
+
+                    for (ResolveInfo resolvedIntentInfo : resolvedIntentActivities) {
+                        String packageName = resolvedIntentInfo.activityInfo.packageName;
+
+                        this.grantUriPermission(packageName, photoFilePathBack, Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    }
+
                     startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
                 }
             }
@@ -265,9 +347,11 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Returns the URi of for saving the photo
+     * @reference https://developer.android.com/reference/android/support/v4/content/FileProvider.html
      */
     private Uri getOutputMediaFileUri() {
-        return Uri.fromFile(getOutputMediaFile());
+
+        return FileProvider.getUriForFile(MainActivity.this ,CAPTURE_IMAGE_FILE_PROVIDER, getOutputMediaFile());
     }
 
     /**
@@ -276,7 +360,29 @@ public class MainActivity extends AppCompatActivity {
     private File getOutputMediaFile() {
 
         //TODO si no tiene tarjeta sd que
+        File photoStorageDir;
+        //To store the photo in a public directory that can be use from other apps (such as the media scanner)
+        //photoStorageDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "PhotoDNI");
 
+        //To store the photo in a directory for this application .
+        //Reference: http://developer.android.com/intl/es/reference/android/content/Context.html#getExternalFilesDir(java.lang.String)
+
+        photoStorageDir = new File(getFilesDir(), "photos");
+
+        //creates the directory if doesn't exist
+        if (!photoStorageDir.exists())
+            if (!photoStorageDir.mkdirs()) {
+                Log.d(TAG, "Failed to create photo directory");
+                return null;
+            }
+
+        //Creates the File name
+        String timeStamp = new SimpleDateFormat("ddMMyyyy_HHmmss_SSSS").format(new Date());
+        File photoFile;
+        photoFile = new File(photoStorageDir.getPath() + File.separator + "DNI_" + timeStamp + ".jpg");
+
+        return photoFile;
+/*
         if (Environment.getExternalStorageState().equalsIgnoreCase(Environment.MEDIA_MOUNTED)) {
 
             File photoStorageDir;
@@ -303,6 +409,7 @@ public class MainActivity extends AppCompatActivity {
             return photoFile;
         } else
             return null;
+            */
     }
 
     /**
@@ -313,10 +420,8 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 
-
+        Log.d(TAG, "Entrando en onActivityResult");
         if (requestCode == REQUEST_IMAGE_CAPTURE) {
-            View layout = findViewById(R.id.coordinator_layout);
-
 
             if (resultCode == RESULT_OK) {
                 Log.d(TAG, "Exito tomando una foto");
@@ -329,14 +434,34 @@ public class MainActivity extends AppCompatActivity {
                 //Now upload the image to the server
                 else if (photoFilePathFront != null && photoFilePathBack != null) {
 
+                    File photoDirectory = new File(getFilesDir(), PHOTOS_FOLDER);
+
+
+                    photoFileFront = new File(photoDirectory, photoFilePathFront.getLastPathSegment());
+                    photoFileBack = new File(photoDirectory, photoFilePathBack.getLastPathSegment());
+
+                    if (!photoFileBack.exists()){
+                        Log.d(TAG, "No existe la foto trasera");
+                    }
+                    if (!photoFileFront.exists())
+                    {
+                        Log.d(TAG, "No existe la foto frontal");
+                    }
+
+                    /**
+                     * @reference https://medium.com/@a1cooke/using-v4-support-library-fileprovider-and-camera-intent-a45f76879d61#.6wu8mv2ya
+                     */
+                    this.revokeUriPermission( photoFilePathFront, Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    this.revokeUriPermission( photoFilePathBack, Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
                     uploadFile();
                 }
 
             } else if (resultCode == RESULT_CANCELED) {
                 //User cancelled the image capture
+                Log.d(TAG, "Codigo cancel de foto");
             } else {
                 //Something goes wrong so advise the user
-                Snackbar.make(layout, "Error tomando la imagen", Snackbar.LENGTH_LONG).show();
+                Log.d(TAG, "Codigo erroneo de foto");
             }
 
         }
@@ -349,7 +474,6 @@ public class MainActivity extends AppCompatActivity {
          */
 
 
-
         UploadDialog.show();
 
         if (upload != null && !upload.isCancelled() && !upload.isDone()) {
@@ -357,55 +481,118 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
+        File tokenFile = new File(getFilesDir().getAbsolutePath() + "/.token");
 
 
-        photoFileFront = new File(photoFilePathFront.getPath());
-        photoFileBack = new File(photoFilePathBack.getPath());
 
-        String uploadURL = SERVER_ADDR + "/files/upload";
-        upload = Ion.with(this)
-                .load(uploadURL)
-                .setTimeout(CONNECTION_TIMEOUT * 1000) //50 seconds
-                .setLogging(TAG + " upload", Log.DEBUG)
-                .setMultipartFile("front", photoFileFront)
-                .setMultipartFile("back", photoFileBack)
-                .asString()
-                .withResponse()
-                .setCallback(new FutureCallback<Response<String>>() {
-
-                    @Override
-                    public void onCompleted(Exception e, Response<String> result) {
+        String campaña64 = null;
+        String token = null;
+        if (tokenFile.exists()) {
+            Log.d(MainActivity.TAG, "Token en: " + tokenFile.getAbsolutePath());
 
 
-                        if (e != null || result.getHeaders().code() != 200) {
+            try {
+
+                BufferedReader br = new BufferedReader(new FileReader(tokenFile));
+                String line;
+                String campaña = null;
+                while ((line = br.readLine()) != null) {
+                    if (campaña == null) {
+                        campaña = new String(line);
+                    } else {
+                        if (token == null)
+                            token = new String(line);
+                    }
+                    Log.d(MainActivity.TAG, line);
+                }
 
 
-                            if (upload.isCancelled())
-                            {
-                                Toast.makeText(MainActivity.this, R.string.toastCanceledResult, Toast.LENGTH_LONG).show();
+                campaña64 = Base64.encodeToString(campaña.getBytes("UTF-8"), Base64.NO_WRAP);
+
+                Log.d(MainActivity.TAG, "Token definitivo: " + token);
+
+
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            String uploadURL = SERVER_ADDR + "/files/upload";
+            upload = Ion.with(this)
+                    .load(uploadURL)
+                    .setTimeout(CONNECTION_TIMEOUT * 1000) //50 seconds
+                    .setLogging(TAG + " upload", Log.DEBUG)
+                    .setMultipartParameter("campaign", campaña64)
+                    .setMultipartParameter("token", token)
+                    .setMultipartFile("front", photoFileFront)
+                    .setMultipartFile("back", photoFileBack)
+                    .asString()
+                    .withResponse()
+                    .setCallback(new FutureCallback<Response<String>>() {
+
+                        @Override
+                        public void onCompleted(Exception e, Response<String> result) {
+
+                            if (e != null || (result != null && result.getHeaders().code() != 200)) {
+
+                                Log.d(TAG + " response message", result.getHeaders().message());
+                                if (e != null) {
+
+                                    e.printStackTrace();
+
+                                }
+
+                                if (upload.isCancelled()) {
+                                    resultDialogMessage = getString(R.string.toastCanceledResult);
+
+
+                                } else {
+                                    String message64 = null;
+                                    if (result != null) {
+                                        message64 = result.getResult();
+                                        Log.d(TAG, "message64: "+message64);
+
+                                        if (result.getHeaders().code() == 404 || result.getHeaders().code() >= 510) {
+                                            String message = null;
+                                            byte[] datos = Base64.decode(message64, Base64.NO_WRAP);
+                                            message = new String(datos);
+                                            resultDialogMessage = message;
+                                            //toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show();
+                                        } else {
+                                            resultDialogMessage = getString(R.string.toastWrongUploadingResult);
+
+                                            //toast.makeText(MainActivity.this, R.string.toastWrongUploadingResult, Toast.LENGTH_LONG).show();
+                                        }
+
+                                    } else {
+                                        resultDialogMessage = getString(R.string.toastWrongUploadingResult);
+                                        //toast.makeText(MainActivity.this, R.string.toastWrongUploadingResult, Toast.LENGTH_LONG).show();
+                                    }
+                                }
+
+
+                            } else {
+                                resultDialogMessage = getString(R.string.toastCorrectUploadingResult);
+                               // toast.makeText(MainActivity.this, R.string.toastCorrectUploadingResult, Toast.LENGTH_LONG).show();
+
                             }
-                            else{
-                                Toast.makeText(MainActivity.this, R.string.toastWrongUploadingResult, Toast.LENGTH_LONG).show();
+                            if (UploadDialog.isShowing()) {
+                                UploadDialog.dismiss();
+                                ResultDialog.setMessage(resultDialogMessage);
+                                ResultDialog.show();
                             }
-
-                            if (e!= null) {
-
-                                e.printStackTrace();
-
-                            }
-                        } else {
-
-                            Toast.makeText(MainActivity.this, R.string.toastCorrectUploadingResult, Toast.LENGTH_LONG).show();
+                            resetPhotoTaking();
+                            deletePhoto();
+                            resetUpload();
 
                         }
-                        if (UploadDialog.isShowing())
-                            UploadDialog.dismiss();
-                        resetPhotoTaking();
-                        deletePhoto();
-                        resetUpload();
+                    });
+        }
+        else{
+            Log.d(TAG, "no se encuentra el fichero token");
+        }
 
-                    }
-                });
 
 
     }
@@ -437,14 +624,59 @@ public class MainActivity extends AppCompatActivity {
     }
     private void deletePhoto() {
         //TODO borrar foto trasera
-        if (photoFileFront != null && photoFileFront.exists() && !photoFileFront.delete())
-            Log.d(TAG, "Error borrando foto frontal");
 
-        if (photoFileBack != null && photoFileBack.exists() && !photoFileBack.delete())
-            Log.d(TAG, "Error borrando foto frontal");
+        File photoDirectory = new File(getFilesDir(), PHOTOS_FOLDER);
 
+        if (photoDirectory != null && !photoDirectory.exists()){
+            Log.d(TAG, "No existe el directorio");
+        }
+
+        File [] photos = photoDirectory.listFiles();
+
+        for (int i =0; i<photos.length; i++)
+        {
+            File photoToDelete = photos[i];
+            Log.d(TAG, "photo to delete: "+photoToDelete.getAbsolutePath());
+
+            if (photoToDelete != null){
+                if (photoToDelete.exists()) {
+                    if (photoToDelete.delete() == false) {
+                        Log.d(TAG, "Error borrando foto");
+                    }
+                }
+                else {
+                    Log.d(TAG, "Error borrando foto porque no existe");
+                }
+            } else {
+                Log.d(TAG, "Error borrando foto porque es null");
+            }
+        }
+
+
+        muestraAchivosEnDirectorio(getFilesDir());
     }
 
+    private void muestraAchivosEnDirectorio(File dir){
+
+
+        if (dir != null)
+        {
+            Log.d(TAG + " Ficheros",dir.getAbsolutePath());
+            File[] files = null;
+
+            files = dir.listFiles();
+
+            if (files ==null)
+                return;
+
+            for (int i=0; i<files.length; i++)
+            {
+
+                muestraAchivosEnDirectorio(files[i]);
+            }
+        }
+        return;
+    }
     @Override
     public void onStart() {
         super.onStart();
@@ -493,6 +725,13 @@ public class MainActivity extends AppCompatActivity {
             UploadDialog.show();
             showingUploadDialog = false;
         }
+
+        if (showingResultDialog)
+        {
+            ResultDialog.setMessage(resultDialogMessage);
+            ResultDialog.show();
+            showingResultDialog = false;
+        }
     }
 
     @Override
@@ -501,6 +740,11 @@ public class MainActivity extends AppCompatActivity {
         if (UploadDialog.isShowing()) {
             UploadDialog.dismiss();
             showingUploadDialog = true;
+        }
+        if (ResultDialog.isShowing())
+        {
+            ResultDialog.dismiss();
+            showingResultDialog = true;
         }
     }
 
@@ -526,4 +770,24 @@ public class MainActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
+    @SuppressWarnings("StatementWithEmptyBody")
+    @Override
+    public boolean onNavigationItemSelected(MenuItem item) {
+        // Handle navigation view item clicks here.
+        int id = item.getItemId();
+
+        if (id == R.id.nav_camera) {
+            // Handle the camera action
+        } else if (id == R.id.nav_gallery) {
+
+        } else if (id == R.id.nav_slideshow) {
+
+        } else if (id == R.id.nav_share) {
+
+        }
+
+        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        drawer.closeDrawer(GravityCompat.START);
+        return true;
+    }
 }

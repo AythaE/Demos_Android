@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <group android:checkableBehavior="single">
+        <item
+            android:id="@+id/nav_camera"
+            android:title="Iniciar sesión en otra campaña" />
+        <item
+            android:id="@+id/nav_gallery"
+            android:title="Registrar una campaña" />
+        <item
+            android:id="@+id/nav_slideshow"
+            android:title="Instrucciones" />
+
+    </group>
+
+    <item android:title="Communicate">
+        <menu>
+            <item
+                android:id="@+id/nav_share"
+
+                android:title="pito" />
+
+        </menu>
+    </item>
+
+</menu>

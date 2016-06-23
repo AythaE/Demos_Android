@@ -2,6 +2,8 @@
     <string name="app_name">Demos</string>
     <string name="action_settings">Settings</string>
     <string name="upload_dialog_title">Subiendo las fotos</string>
+    <string name="result_dialog_title">Resultado de la subida</string>
+    <string name="result_dialog_button">Aceptar</string>
     <string name="register_dialog_title">Registrando campaña</string>
     <string name="login_dialog_title">Iniciando sesión</string>
     <string name="toastMakeFrontPhoto">Haga una foto de la parte frontal del DNI.</string>
@@ -33,6 +35,10 @@
         \nTras esto se le pedirá hacer una foto a la parte frontal del DNI (la que contiene la foto).
         \nA continuación gire el DNI y haga lo mismo con la otra cara.
         \nAparecerá un dialogo que le mostrara el progreso y resultado de la subida.</string>
+    <string name="title_activity_test">TestActivity</string>
+
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
 
 
 </resources>

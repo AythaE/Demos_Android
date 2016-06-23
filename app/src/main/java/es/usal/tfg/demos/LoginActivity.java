@@ -16,6 +16,7 @@ import android.support.v7.widget.Toolbar;
 import android.text.TextUtils;
 import android.util.Base64;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
@@ -291,17 +292,23 @@ public class LoginActivity extends AppCompatActivity {
             if (e != null || (loginResp != null && loginResp.getHeaders().code() != 200)) {
 
 
-                //TODO leer error response
-                Log.d(MainActivity.TAG + " response message", loginResp.getHeaders().message());
+
                 if (e != null) {
                     e.printStackTrace();
                 }
-                if (loginResp != null && (400 <= loginResp.getHeaders().code()) &&
-                        (500 > loginResp.getHeaders().code())) {
-                    byte [] datos = Base64.decode( loginResp.getResult(),Base64.NO_WRAP);
-                    toastMessage = new String(datos);
+                if (loginResp != null) {
 
-                } else {
+                    //TODO leer error response
+                    Log.d(MainActivity.TAG + " response message", loginResp.getHeaders().message());
+                    if((400 <= loginResp.getHeaders().code()) &&  (500 > loginResp.getHeaders().code())) {
+                            byte [] datos = Base64.decode( loginResp.getResult(),Base64.NO_WRAP);
+                            toastMessage = new String(datos);
+
+                    }
+                    else {
+                        toastMessage = getString(R.string.toastWrongLoginResult);
+                    }
+                }else {
                     toastMessage = getString(R.string.toastWrongLoginResult);
                 }
                 setLoginSucceed(false);
@@ -320,8 +327,12 @@ public class LoginActivity extends AppCompatActivity {
             if (isCancelled())
                 cancelTask();
             else {
-                Toast.makeText(LoginActivity.this, toastMessage, Toast.LENGTH_LONG).show();
-
+                Toast t = Toast.makeText(LoginActivity.this, toastMessage, Toast.LENGTH_LONG);
+                TextView v = (TextView) t.getView().findViewById(android.R.id.message);
+                if (v!=null){
+                    v.setGravity(Gravity.CENTER);
+                }
+                t.show();
                 if (success) {
                     String token = loginResp.getResult();
                     saveSessionToken(token);

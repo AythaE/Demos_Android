@@ -40,7 +40,7 @@ public class CheckSessionActivity extends AppCompatActivity {
 
     //Statics fields to try to avoid orientations change bugs (because of recreation of the activity)
     private static Response<String> checkSessionResp = null;
-    private static int CONNECTION_TIMEOUT = 20;
+    private static int CONNECTION_TIMEOUT = 5;
 
     /**
      * ATTENTION: This was auto-generated to implement the App Indexing API.
@@ -59,16 +59,11 @@ public class CheckSessionActivity extends AppCompatActivity {
         // ATTENTION: This was auto-generated to implement the App Indexing API.
         // See https://g.co/AppIndexing/AndroidStudio for more information.
         client = new GoogleApiClient.Builder(this).addApi(AppIndex.API).build();
-    }
-
-
-    @Override
-    protected void onResume() {
-        super.onResume();
 
         UserAuthenticateTask authTask = new UserAuthenticateTask();
         authTask.execute((Void) null);
     }
+
 
 
     /**
