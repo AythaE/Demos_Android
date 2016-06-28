@@ -1,5 +1,6 @@
 package es.usal.tfg.demos;
 
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -42,6 +43,8 @@ public class CheckSessionActivity extends AppCompatActivity {
     private static Response<String> checkSessionResp = null;
     private static int CONNECTION_TIMEOUT = 5;
 
+    private static File tokenFile ;
+    private static String campaignName;
     /**
      * ATTENTION: This was auto-generated to implement the App Indexing API.
      * See https://g.co/AppIndexing/AndroidStudio for more information.
@@ -54,7 +57,7 @@ public class CheckSessionActivity extends AppCompatActivity {
         setContentView(R.layout.activity_check_session);
         Log.d(MainActivity.TAG, "Entrando en checkSession");
 
-
+         tokenFile = new File(getFilesDir().getAbsolutePath() + "/.token");
 
         // ATTENTION: This was auto-generated to implement the App Indexing API.
         // See https://g.co/AppIndexing/AndroidStudio for more information.
@@ -79,13 +82,12 @@ public class CheckSessionActivity extends AppCompatActivity {
         private void checkSessionToken() {
 
 
-            File tokenFile = new File(getFilesDir().getAbsolutePath() + "/.token");
 
 
             if (tokenFile.exists()) {
                 Log.d(MainActivity.TAG, "Token en: " + tokenFile.getAbsolutePath());
                 String serverAuthenticate = MainActivity.SERVER_ADDR + "/campaign/authenticate_token";
-                trustServerCertificate();
+                trustServerCertificate(CheckSessionActivity.this);
 
 
                 try {
@@ -107,7 +109,7 @@ public class CheckSessionActivity extends AppCompatActivity {
 
 
                     String campaña64 = Base64.encodeToString(campaña.getBytes("UTF-8"), Base64.NO_WRAP);
-
+                    campaignName = campaña;
                     Log.d(MainActivity.TAG, "Token definitivo: " +token);
                     checkSessionResp = Ion.with(CheckSessionActivity.this)
                             .load(serverAuthenticate)
@@ -153,17 +155,27 @@ public class CheckSessionActivity extends AppCompatActivity {
                 }
                 if (checkSessionResp != null) {
                     Log.d(MainActivity.TAG + " response message", checkSessionResp.getHeaders().message());
-                    byte[] datos = Base64.decode(checkSessionResp.getResult(), Base64.NO_WRAP);
-                    Log.d(MainActivity.TAG, new String(datos));
+                    try{
+                        byte[] datos = Base64.decode(checkSessionResp.getResult(), Base64.NO_WRAP);
+                        Log.d(MainActivity.TAG, new String(datos));
+                    } catch (Exception e2){
+                        Log.d(MainActivity.TAG, checkSessionResp.getResult());
+                    }
                 }
 
+                if(!tokenFile.delete()){
+                    Log.d(MainActivity.TAG, "Error borrando token");
+                }
                 Intent intent = new Intent(CheckSessionActivity.this, LoginActivity.class);
                 startActivity(intent);
                 //TODO http://stackoverflow.com/questions/16419627/making-an-activity-appear-only-once-when-the-app-is-started
                 finish();
             } else {
                 Log.d(MainActivity.TAG, "Respuesta correcta");
+                Log.d(MainActivity.TAG, campaignName);
                 Intent intent = new Intent(CheckSessionActivity.this, MainActivity.class);
+                intent.putExtra("campaignName", campaignName);
+
                 startActivity(intent);
                 //TODO http://stackoverflow.com/questions/16419627/making-an-activity-appear-only-once-when-the-app-is-started
                 finish();
@@ -176,11 +188,11 @@ public class CheckSessionActivity extends AppCompatActivity {
 
 
 
-    private void trustServerCertificate() {
+    public static void trustServerCertificate(Context context) {
         try {
             CertificateFactory cf = CertificateFactory.getInstance("X.509");
             //Load cert file stored in \app\src\main\res\raw
-            InputStream caInput = getResources().openRawResource(R.raw.server_ca); //TODO Seleccionar el certificado correcto
+            InputStream caInput = context.getResources().openRawResource(R.raw.server_ca); //TODO Seleccionar el certificado correcto
 
             Certificate ca = cf.generateCertificate(caInput);
             caInput.close();
@@ -202,7 +214,7 @@ public class CheckSessionActivity extends AppCompatActivity {
             sslContext.init(null, wrappedTrustManagers, null);
             //sslContext.init(null, tmf.getTrustManagers(), null);
 
-            AsyncSSLSocketMiddleware sslMiddleWare = Ion.getDefault(this).getHttpClient().getSSLSocketMiddleware();
+            AsyncSSLSocketMiddleware sslMiddleWare = Ion.getDefault(context).getHttpClient().getSSLSocketMiddleware();
             sslMiddleWare.setTrustManagers(wrappedTrustManagers);
             //sslMiddleWare.setHostnameVerifier(getHostnameVerifier());
             sslMiddleWare.setSSLContext(sslContext);
@@ -212,7 +224,7 @@ public class CheckSessionActivity extends AppCompatActivity {
         }
     }
 
-    private HostnameVerifier getHostnameVerifier() {
+    public HostnameVerifier getHostnameVerifier() {
         return new HostnameVerifier() {
             @Override
             public boolean verify(String hostname, SSLSession session) {
@@ -224,7 +236,7 @@ public class CheckSessionActivity extends AppCompatActivity {
         };
     }
 
-    private TrustManager[] getWrappedTrustManagers(TrustManager[] trustManagers) {
+    public static TrustManager[] getWrappedTrustManagers(TrustManager[] trustManagers) {
         final X509TrustManager originalTrustManager = (X509TrustManager) trustManagers[0];
         return new TrustManager[]{
                 new X509TrustManager() {

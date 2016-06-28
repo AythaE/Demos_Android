@@ -1,9 +1,11 @@
 package es.usal.tfg.demos;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
+import android.nfc.Tag;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.support.design.widget.FloatingActionButton;
@@ -15,12 +17,14 @@ import android.support.v7.app.ActionBarDrawerToggle;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.text.TextUtils;
 import android.util.Base64;
 import android.util.Log;
 import android.view.Gravity;
-import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -29,7 +33,6 @@ import com.google.android.gms.appindexing.AppIndex;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.koushikdutta.async.future.Future;
 import com.koushikdutta.async.future.FutureCallback;
-import com.koushikdutta.async.http.AsyncSSLSocketMiddleware;
 import com.koushikdutta.ion.Ion;
 import com.koushikdutta.ion.Response;
 
@@ -38,22 +41,9 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.security.KeyStore;
-import java.security.cert.Certificate;
-import java.security.cert.CertificateException;
-import java.security.cert.CertificateFactory;
-import java.security.cert.X509Certificate;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
-
-import javax.net.ssl.HostnameVerifier;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSession;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.TrustManagerFactory;
-import javax.net.ssl.X509TrustManager;
 
 public class MainActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener {
 
@@ -70,6 +60,9 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     private static Uri photoFilePathFront, photoFilePathBack;
     private static File photoFileFront, photoFileBack;
 
+    private EditText mSignPaper;
+    private NavigationView navigationView;
+    private static long numSignPaper;
 
 
     //Statics fields to try to avoid orientations change bugs (because of recreation of the activity)
@@ -78,6 +71,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     private static String resultDialogMessage = "";
     private static boolean showingUploadDialog = false;
     private static boolean showingResultDialog = false;
+    private static boolean invalidToken = false;
     /**
      * ATTENTION: This was auto-generated to implement the App Indexing API.
      * See https://g.co/AppIndexing/AndroidStudio for more information.
@@ -97,17 +91,10 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar_main);
         setSupportActionBar(toolbar);
 
-        if (upload != null && !upload.isCancelled() && !upload.isDone()) {
-            //An upload is actually running so the progress bar must be shown
-           // uploadPBar.setVisibility(View.VISIBLE);
-            Log.d(TAG, "upload != null");
-        } else {
-            //TODO comprobar que pasa al girar pantalla durante subida
 
-        }
+        mSignPaper= (EditText) findViewById(R.id.sign_paper);
 
-        //trustServerCertificate();
-        //Log.d(TAG, "Certificado añadido");
+
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -116,28 +103,67 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
                 resetPhotoTaking();
 
-                dispatchTakePictureIntent();
-                //If front Photo is a succeed take back photo, else reset all
-               /* TODO if(succeedPhoto) {
-                    Log.d(TAG, "Exito tomando foto delantera, ahora se tomara la trasera");
-                    dispatchTakePictureIntent();
-                }
-                else{
-                    resetPhotoTaking();
-                }
-                */
+                attemptTakePicture();
+
             }
         });
 
-        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout_main);
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
-                this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
+                this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close){
+            @Override
+            public void onDrawerClosed(View drawerView) {
+                // Code here will be triggered once the drawer closes as we dont want anything to happen so we leave this blank
+
+                InputMethodManager inputMethodManager = (InputMethodManager)
+                        getSystemService(Context.INPUT_METHOD_SERVICE);
+                inputMethodManager.hideSoftInputFromWindow(getCurrentFocus().getWindowToken(), 0);
+                super.onDrawerClosed(drawerView);
+            }
+
+            @Override
+            public void onDrawerOpened(View drawerView) {
+                // Code here will be triggered once the drawer open as we dont want anything to happen so we leave this blank
+
+                InputMethodManager inputMethodManager = (InputMethodManager)
+                        getSystemService(Context.INPUT_METHOD_SERVICE);
+                inputMethodManager.hideSoftInputFromWindow(getCurrentFocus().getWindowToken(), 0);
+                super.onDrawerClosed(drawerView);
+            }
+        };
         drawer.setDrawerListener(toggle);
         toggle.syncState();
 
-        NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
+        navigationView = (NavigationView) findViewById(R.id.nav_view_main);
         navigationView.setNavigationItemSelectedListener(this);
 
+        View header = navigationView.getHeaderView(0);
+        TextView headerCampaign = (TextView) header.findViewById(R.id.campaign_header_textview);
+        Intent intent = getIntent();
+        String campaignName = intent.getStringExtra("campaignName");
+        if (campaignName != null){
+            Log.d(TAG, "CampaignName: "+campaignName+" TextView: "+headerCampaign);
+            headerCampaign.setText(campaignName);
+        }
+        else {
+            File tokenFile = new File(getFilesDir().getAbsolutePath() + "/.token");
+
+            if (tokenFile.exists()) {
+                try {
+
+                    BufferedReader br = new BufferedReader(new FileReader(tokenFile));
+
+                    campaignName = br.readLine();
+
+                    headerCampaign.setText(campaignName);
+
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
         UploadDialog = new AlertDialog.Builder(MainActivity.this).create();
 
         UploadDialog.setView(getLayoutInflater().inflate(R.layout.uploading_dialog, null));
@@ -168,7 +194,14 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             public void onClick(DialogInterface dialog, int which) {
                 showingResultDialog = false;
                 resultDialogMessage = "";
+                mSignPaper.setText("");
                 dialog.dismiss();
+                if (invalidToken){
+                    Intent intent = new Intent(MainActivity.this, LoginActivity.class);
+                    startActivity(intent);
+                    //TODO http://stackoverflow.com/questions/16419627/making-an-activity-appear-only-once-when-the-app-is-started
+                    finish();
+                }
 
             }
         }).create();
@@ -184,7 +217,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
     @Override
     public void onBackPressed() {
-        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout_main);
         if (drawer.isDrawerOpen(GravityCompat.START)) {
             drawer.closeDrawer(GravityCompat.START);
         } else {
@@ -192,88 +225,50 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         }
     }
 
-    private void trustServerCertificate()
-    {
-        try {
-            CertificateFactory cf = CertificateFactory.getInstance("X.509");
-            //Load cert file stored in \app\src\main\res\raw
-            InputStream caInput = getResources().openRawResource(R.raw.server_ca); //TODO Seleccionar el certificado correcto
+    private void attemptTakePicture(){
+        // Reset errors.
+        mSignPaper.setError(null);
 
-            Certificate ca = cf.generateCertificate(caInput);
-            caInput.close();
-            // Create a KeyStore containing our trusted CAs
-            String keyStoreType = KeyStore.getDefaultType();
-            KeyStore keyStore = KeyStore.getInstance(keyStoreType);
-            keyStore.load(null, null);
-            keyStore.setCertificateEntry("ca", ca);
+        // Store values at the time of the picture attempt.
+        String signPaper = mSignPaper.getText().toString();
 
-            // Create a TrustManager that trusts the CAs in our KeyStore
-            String tmfAlgorithm = TrustManagerFactory.getDefaultAlgorithm();
-            TrustManagerFactory tmf = TrustManagerFactory.getInstance(tmfAlgorithm);
-            tmf.init(keyStore);
 
-            TrustManager[] wrappedTrustManagers = getWrappedTrustManagers(tmf.getTrustManagers());
+        boolean cancel = false;
+        View focusView = null;
 
-            // Create an SSLContext that uses our TrustManager
-            SSLContext sslContext = SSLContext.getInstance("TLS");
-            sslContext.init(null, wrappedTrustManagers, null);
-            //sslContext.init(null, tmf.getTrustManagers(), null);
+        // Check for a valid signPaper.
+        if (TextUtils.isEmpty(signPaper)) {
+            mSignPaper.setError(getString(R.string.error_field_required));
+            focusView = mSignPaper;
+            cancel = true;
+        } else if (!isSignPaperValid(signPaper)) {
+            mSignPaper.setError(getString(R.string.error_invalid_sign_paper));
+            focusView = mSignPaper;
+            cancel = true;
+        }
 
-            AsyncSSLSocketMiddleware sslMiddleWare = Ion.getDefault(this).getHttpClient().getSSLSocketMiddleware();
-            sslMiddleWare.setTrustManagers(wrappedTrustManagers);
-            //sslMiddleWare.setHostnameVerifier(getHostnameVerifier());
-            sslMiddleWare.setSSLContext(sslContext);
 
-        } catch (Exception e) {
-            e.printStackTrace();
+
+
+        if (cancel) {
+            // There was an error; don't attempt taking picture and focus the
+            // form field with an error.
+            focusView.requestFocus();
+        } else {
+
+            numSignPaper =Long.parseLong(signPaper);
+            dispatchTakePictureIntent();
         }
     }
 
-    private HostnameVerifier getHostnameVerifier() {
-        return new HostnameVerifier() {
-            @Override
-            public boolean verify(String hostname, SSLSession session) {
-                return true;
-                // or the following:
-                // HostnameVerifier hv = HttpsURLConnection.getDefaultHostnameVerifier();
-                // return hv.verify("www.yourserver.com", session);
-            }
-        };
+    private boolean isSignPaperValid(String signPaper){
+        long numSignPaperTemp = 0;
+        try{
+            numSignPaperTemp = Long.parseLong(signPaper);
+        } catch (NumberFormatException e){}
+        return  numSignPaperTemp > 0;
     }
-    private TrustManager[] getWrappedTrustManagers(TrustManager[] trustManagers) {
-        final X509TrustManager originalTrustManager = (X509TrustManager) trustManagers[0];
-        return new TrustManager[]{
-                new X509TrustManager() {
-                    public X509Certificate[] getAcceptedIssuers() {
-                        return originalTrustManager.getAcceptedIssuers();
-                    }
 
-                    public void checkClientTrusted(X509Certificate[] certs, String authType) {
-                        try {
-                            if (certs != null && certs.length > 0){
-                                certs[0].checkValidity();
-                            } else {
-                                originalTrustManager.checkClientTrusted(certs, authType);
-                            }
-                        } catch (CertificateException e) {
-                            Log.w("checkClientTrusted", e.toString());
-                        }
-                    }
-
-                    public void checkServerTrusted(X509Certificate[] certs, String authType) {
-                        try {
-                            if (certs != null && certs.length > 0){
-                                certs[0].checkValidity();
-                            } else {
-                                originalTrustManager.checkServerTrusted(certs, authType);
-                            }
-                        } catch (CertificateException e) {
-                            Log.w("checkServerTrusted", e.toString());
-                        }
-                    }
-                }
-        };
-    }
     private void dispatchTakePictureIntent() {
         Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
 
@@ -382,34 +377,6 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         photoFile = new File(photoStorageDir.getPath() + File.separator + "DNI_" + timeStamp + ".jpg");
 
         return photoFile;
-/*
-        if (Environment.getExternalStorageState().equalsIgnoreCase(Environment.MEDIA_MOUNTED)) {
-
-            File photoStorageDir;
-            //To store the photo in a public directory that can be use from other apps (such as the media scanner)
-            //photoStorageDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "PhotoDNI");
-
-            //To store the photo in a directory for this application .
-            //Reference: http://developer.android.com/intl/es/reference/android/content/Context.html#getExternalFilesDir(java.lang.String)
-
-            photoStorageDir = new File(getExternalFilesDir(Environment.DIRECTORY_PICTURES), TAG);
-
-            //creates the directory if doesn't exist
-            if (!photoStorageDir.exists())
-                if (!photoStorageDir.mkdirs()) {
-                    Log.d(TAG, "Failed to create photo directory");
-                    return null;
-                }
-
-            //Creates the FIle name
-            String timeStamp = new SimpleDateFormat("ddMMyyyy_HHmmss_SSSS").format(new Date());
-            File photoFile;
-            photoFile = new File(photoStorageDir.getPath() + File.separator + "DNI_" + timeStamp + ".jpg");
-
-            return photoFile;
-        } else
-            return null;
-            */
     }
 
     /**
@@ -487,6 +454,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
         String campaña64 = null;
         String token = null;
+        String numSignPaper64=null;
         if (tokenFile.exists()) {
             Log.d(MainActivity.TAG, "Token en: " + tokenFile.getAbsolutePath());
 
@@ -508,7 +476,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
 
                 campaña64 = Base64.encodeToString(campaña.getBytes("UTF-8"), Base64.NO_WRAP);
-
+                numSignPaper64 = Base64.encodeToString(Long.toString(numSignPaper).getBytes("UTF-8"), Base64.NO_WRAP);
+                Log.d(TAG, "Num signPaper: "+numSignPaper);
                 Log.d(MainActivity.TAG, "Token definitivo: " + token);
 
 
@@ -525,6 +494,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                     .setLogging(TAG + " upload", Log.DEBUG)
                     .setMultipartParameter("campaign", campaña64)
                     .setMultipartParameter("token", token)
+                    .setMultipartParameter("num_sign_paper", numSignPaper64)
                     .setMultipartFile("front", photoFileFront)
                     .setMultipartFile("back", photoFileBack)
                     .asString()
@@ -536,12 +506,13 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
                             if (e != null || (result != null && result.getHeaders().code() != 200)) {
 
-                                Log.d(TAG + " response message", result.getHeaders().message());
+
                                 if (e != null) {
 
                                     e.printStackTrace();
 
                                 }
+
 
                                 if (upload.isCancelled()) {
                                     resultDialogMessage = getString(R.string.toastCanceledResult);
@@ -551,6 +522,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                                     String message64 = null;
                                     if (result != null) {
                                         message64 = result.getResult();
+                                        Log.d(TAG + " response message", result.getHeaders().code()+" "+ result.getHeaders().message());
                                         Log.d(TAG, "message64: "+message64);
 
                                         if (result.getHeaders().code() == 404 || result.getHeaders().code() >= 510) {
@@ -558,6 +530,14 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                                             byte[] datos = Base64.decode(message64, Base64.NO_WRAP);
                                             message = new String(datos);
                                             resultDialogMessage = message;
+                                            if (result.getHeaders().code() == 404){
+                                                File tokenFile = new File(getFilesDir().getAbsolutePath() + "/.token");
+
+                                                if (!tokenFile.delete()){
+                                                    Log.d(TAG, "Error borrando archivo token");
+                                                }
+                                                invalidToken = true;
+                                            }
                                             //toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show();
                                         } else {
                                             resultDialogMessage = getString(R.string.toastWrongUploadingResult);
@@ -720,6 +700,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     @Override
     protected void onResume() {
         super.onResume();
+
+        navigationView.setCheckedItem(R.id.main_drawer_item);
         if (showingUploadDialog)
         {
             UploadDialog.show();
@@ -748,6 +730,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         }
     }
 
+    /*
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
@@ -769,25 +753,35 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
         return super.onOptionsItemSelected(item);
     }
+*/
 
-    @SuppressWarnings("StatementWithEmptyBody")
     @Override
     public boolean onNavigationItemSelected(MenuItem item) {
         // Handle navigation view item clicks here.
         int id = item.getItemId();
+        boolean retValue=true;
+        if (id == R.id.login_drawer_item) {
 
-        if (id == R.id.nav_camera) {
-            // Handle the camera action
-        } else if (id == R.id.nav_gallery) {
+            Intent intent = new Intent(MainActivity.this, LoginActivity.class);
+            startActivity(intent);
 
-        } else if (id == R.id.nav_slideshow) {
 
-        } else if (id == R.id.nav_share) {
+        } else if (id == R.id.register_drawer_item) {
+
+            Intent intent = new Intent(MainActivity.this, RegisterActivity.class);
+            startActivity(intent);
+
+
+        } else if (id == R.id.instructions_drawer_item) {
+            Intent intent = new Intent(MainActivity.this, InstructionsActivity.class);
+            startActivity(intent);
+
+        } else if (id == R.id.main_drawer_item) {
 
         }
 
-        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout_main);
         drawer.closeDrawer(GravityCompat.START);
-        return true;
+        return retValue;
     }
 }

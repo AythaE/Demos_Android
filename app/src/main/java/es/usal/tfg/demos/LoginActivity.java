@@ -1,15 +1,14 @@
 package es.usal.tfg.demos;
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
-import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.AsyncTask;
-import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
+import android.support.design.widget.NavigationView;
+import android.support.v4.view.GravityCompat;
+import android.support.v4.widget.DrawerLayout;
+import android.support.v7.app.ActionBarDrawerToggle;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
@@ -18,8 +17,10 @@ import android.util.Base64;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -28,7 +29,6 @@ import android.widget.Toast;
 import com.google.android.gms.appindexing.Action;
 import com.google.android.gms.appindexing.AppIndex;
 import com.google.android.gms.common.api.GoogleApiClient;
-import com.koushikdutta.async.http.AsyncSSLSocketMiddleware;
 import com.koushikdutta.ion.Ion;
 import com.koushikdutta.ion.Response;
 
@@ -38,29 +38,13 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
-import java.nio.charset.Charset;
-import java.security.KeyStore;
-import java.security.cert.Certificate;
-import java.security.cert.CertificateException;
-import java.security.cert.CertificateFactory;
-import java.security.cert.X509Certificate;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.concurrent.ExecutionException;
-
-import javax.net.ssl.HostnameVerifier;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSession;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.TrustManagerFactory;
-import javax.net.ssl.X509TrustManager;
 
 /**
  * A login screen that offers login via email/password.
  */
-public class LoginActivity extends AppCompatActivity {
+public class LoginActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener {
 
 
     /**
@@ -71,8 +55,7 @@ public class LoginActivity extends AppCompatActivity {
     // UI references.
     private EditText mCampaignView;
     private EditText mPasswordView;
-    private View mProgressView;
-    private View mLoginFormView;
+    private NavigationView navigationView;
 
     //Statics fields to try to avoid orientations change bugs (because of recreation of the activity)
     private static Response<String> loginResp = null;
@@ -92,6 +75,34 @@ public class LoginActivity extends AppCompatActivity {
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar_login);
         setSupportActionBar(toolbar);
 
+        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout_login);
+        ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
+                this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close) {
+            @Override
+            public void onDrawerClosed(View drawerView) {
+                // Code here will be triggered once the drawer closes as we dont want anything to happen so we leave this blank
+
+                InputMethodManager inputMethodManager = (InputMethodManager)
+                        getSystemService(Context.INPUT_METHOD_SERVICE);
+                inputMethodManager.hideSoftInputFromWindow(getCurrentFocus().getWindowToken(), 0);
+                super.onDrawerClosed(drawerView);
+            }
+
+            @Override
+            public void onDrawerOpened(View drawerView) {
+                // Code here will be triggered once the drawer open as we dont want anything to happen so we leave this blank
+
+                InputMethodManager inputMethodManager = (InputMethodManager)
+                        getSystemService(Context.INPUT_METHOD_SERVICE);
+                inputMethodManager.hideSoftInputFromWindow(getCurrentFocus().getWindowToken(), 0);
+                super.onDrawerClosed(drawerView);
+            }
+        };
+        drawer.setDrawerListener(toggle);
+        toggle.syncState();
+
+        navigationView = (NavigationView) findViewById(R.id.nav_view_login);
+        navigationView.setNavigationItemSelectedListener(this);
 
         // Set up the login form.
         mCampaignView = (EditText) findViewById(R.id.campaign_login);
@@ -126,11 +137,18 @@ public class LoginActivity extends AppCompatActivity {
             }
         });
 
-        mLoginFormView = findViewById(R.id.scroll_login_form);
-        mProgressView = findViewById(R.id.login_progress);
         // ATTENTION: This was auto-generated to implement the App Indexing API.
         // See https://g.co/AppIndexing/AndroidStudio for more information.
         client = new GoogleApiClient.Builder(this).addApi(AppIndex.API).build();
+    }
+    @Override
+    public void onBackPressed() {
+        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout_login);
+        if (drawer.isDrawerOpen(GravityCompat.START)) {
+            drawer.closeDrawer(GravityCompat.START);
+        } else {
+            super.onBackPressed();
+        }
     }
 
     private void launchRegister() {
@@ -208,7 +226,93 @@ public class LoginActivity extends AppCompatActivity {
         return password.length() >= 8 && password.matches("^[a-zA-Z0-9\\.\\*#%&()=+:;,<>_!?-]*$");
     }
 
+    @SuppressWarnings("StatementWithEmptyBody")
+    @Override
+    public boolean onNavigationItemSelected(MenuItem item) {
+        // Handle navigation view item clicks here.
+        int id = item.getItemId();
+        boolean retVal =true;
 
+        if (id == R.id.login_drawer_item) {
+
+        } else if (id == R.id.register_drawer_item) {
+            Intent intent = new Intent(LoginActivity.this, RegisterActivity.class);
+            startActivity(intent);
+
+        } else if (id == R.id.instructions_drawer_item) {
+            retVal =false;
+        } else if (id == R.id.main_drawer_item) {
+            File tokenFile = new File(getFilesDir().getAbsolutePath() + "/.token");
+
+
+            if (!tokenFile.exists()) {
+                Toast t = Toast.makeText(LoginActivity.this, R.string.toastMainForbidden, Toast.LENGTH_LONG);
+                TextView v = (TextView) t.getView().findViewById(android.R.id.message);
+                if (v!=null){
+                    v.setGravity(Gravity.CENTER);
+                }
+                t.show();
+                retVal = false;
+            }
+            else{
+
+                Intent intent = new Intent(LoginActivity.this, MainActivity.class);
+
+                startActivity(intent);
+            }
+        }
+
+        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout_login);
+        drawer.closeDrawer(GravityCompat.START);
+        return retVal;
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        navigationView.setCheckedItem(R.id.login_drawer_item);
+    }
+
+
+    @Override
+    public void onStart() {
+        super.onStart();
+
+        // ATTENTION: This was auto-generated to implement the App Indexing API.
+        // See https://g.co/AppIndexing/AndroidStudio for more information.
+        client.connect();
+        Action viewAction = Action.newAction(
+                Action.TYPE_VIEW, // TODO: choose an action type.
+                "Login Page", // TODO: Define a title for the content shown.
+                // TODO: If you have web page content that matches this app activity's content,
+                // make sure this auto-generated web page URL is correct.
+                // Otherwise, set the URL to null.
+                Uri.parse("http://host/path"),
+                // TODO: Make sure this auto-generated app URL is correct.
+                Uri.parse("android-app://es.usal.tfg.demos/http/host/path")
+        );
+        AppIndex.AppIndexApi.start(client, viewAction);
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+
+        // ATTENTION: This was auto-generated to implement the App Indexing API.
+        // See https://g.co/AppIndexing/AndroidStudio for more information.
+        Action viewAction = Action.newAction(
+                Action.TYPE_VIEW, // TODO: choose an action type.
+                "Login Page", // TODO: Define a title for the content shown.
+                // TODO: If you have web page content that matches this app activity's content,
+                // make sure this auto-generated web page URL is correct.
+                // Otherwise, set the URL to null.
+                Uri.parse("http://host/path"),
+                // TODO: Make sure this auto-generated app URL is correct.
+                Uri.parse("android-app://es.usal.tfg.demos/http/host/path")
+        );
+        AppIndex.AppIndexApi.end(client, viewAction);
+        client.disconnect();
+    }
 
     /**
      * Represents an asynchronous login/registration task used to authenticate
@@ -258,7 +362,7 @@ public class LoginActivity extends AppCompatActivity {
 
 
             String serverRegister = MainActivity.SERVER_ADDR + "/campaign/login";
-            trustServerCertificate();
+            CheckSessionActivity.trustServerCertificate(LoginActivity.this);
 
 
             try {
@@ -338,12 +442,15 @@ public class LoginActivity extends AppCompatActivity {
                     saveSessionToken(token);
                     Log.d(MainActivity.TAG, "login correcto: " + token);
                     Intent intent = new Intent(LoginActivity.this, MainActivity.class);
+                    intent.putExtra("campaignName", mCampaign);
                     startActivity(intent);
                     //TODO http://stackoverflow.com/questions/16419627/making-an-activity-appear-only-once-when-the-app-is-started
                     finish();
                 } else {
-                    String responseResult=  new String(Base64.decode(loginResp.getResult(), Base64.NO_WRAP));
-                    Log.d(MainActivity.TAG + " response message", responseResult);
+                    try {
+                        String responseResult = new String(Base64.decode(loginResp.getResult(), Base64.NO_WRAP));
+                        Log.d(MainActivity.TAG + " response message", responseResult);
+                    } catch (Exception e){}
                     Log.d(MainActivity.TAG, "login incorrecto");
 
                 }
@@ -399,129 +506,6 @@ public class LoginActivity extends AppCompatActivity {
             loginSucceed = false;
             loginDialog.dismiss();
         }
-    }
-
-
-    private void trustServerCertificate() {
-        try {
-            CertificateFactory cf = CertificateFactory.getInstance("X.509");
-            //Load cert file stored in \app\src\main\res\raw
-            InputStream caInput = getResources().openRawResource(R.raw.server_ca); //TODO Seleccionar el certificado correcto
-
-            Certificate ca = cf.generateCertificate(caInput);
-            caInput.close();
-            // Create a KeyStore containing our trusted CAs
-            String keyStoreType = KeyStore.getDefaultType();
-            KeyStore keyStore = KeyStore.getInstance(keyStoreType);
-            keyStore.load(null, null);
-            keyStore.setCertificateEntry("ca", ca);
-
-            // Create a TrustManager that trusts the CAs in our KeyStore
-            String tmfAlgorithm = TrustManagerFactory.getDefaultAlgorithm();
-            TrustManagerFactory tmf = TrustManagerFactory.getInstance(tmfAlgorithm);
-            tmf.init(keyStore);
-
-            TrustManager[] wrappedTrustManagers = getWrappedTrustManagers(tmf.getTrustManagers());
-
-            // Create an SSLContext that uses our TrustManager
-            SSLContext sslContext = SSLContext.getInstance("TLS");
-            sslContext.init(null, wrappedTrustManagers, null);
-            //sslContext.init(null, tmf.getTrustManagers(), null);
-
-            AsyncSSLSocketMiddleware sslMiddleWare = Ion.getDefault(this).getHttpClient().getSSLSocketMiddleware();
-            sslMiddleWare.setTrustManagers(wrappedTrustManagers);
-            //sslMiddleWare.setHostnameVerifier(getHostnameVerifier());
-            sslMiddleWare.setSSLContext(sslContext);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    private HostnameVerifier getHostnameVerifier() {
-        return new HostnameVerifier() {
-            @Override
-            public boolean verify(String hostname, SSLSession session) {
-                return true;
-                // or the following:
-                // HostnameVerifier hv = HttpsURLConnection.getDefaultHostnameVerifier();
-                // return hv.verify("www.yourserver.com", session);
-            }
-        };
-    }
-
-    private TrustManager[] getWrappedTrustManagers(TrustManager[] trustManagers) {
-        final X509TrustManager originalTrustManager = (X509TrustManager) trustManagers[0];
-        return new TrustManager[]{
-                new X509TrustManager() {
-                    public X509Certificate[] getAcceptedIssuers() {
-                        return originalTrustManager.getAcceptedIssuers();
-                    }
-
-                    public void checkClientTrusted(X509Certificate[] certs, String authType) {
-                        try {
-                            if (certs != null && certs.length > 0) {
-                                certs[0].checkValidity();
-                            } else {
-                                originalTrustManager.checkClientTrusted(certs, authType);
-                            }
-                        } catch (CertificateException e) {
-                            Log.w("checkClientTrusted", e.toString());
-                        }
-                    }
-
-                    public void checkServerTrusted(X509Certificate[] certs, String authType) {
-                        try {
-                            if (certs != null && certs.length > 0) {
-                                certs[0].checkValidity();
-                            } else {
-                                originalTrustManager.checkServerTrusted(certs, authType);
-                            }
-                        } catch (CertificateException e) {
-                            Log.w("checkServerTrusted", e.toString());
-                        }
-                    }
-                }
-        };
-    }
-    @Override
-    public void onStart() {
-        super.onStart();
-
-        // ATTENTION: This was auto-generated to implement the App Indexing API.
-        // See https://g.co/AppIndexing/AndroidStudio for more information.
-        client.connect();
-        Action viewAction = Action.newAction(
-                Action.TYPE_VIEW, // TODO: choose an action type.
-                "Login Page", // TODO: Define a title for the content shown.
-                // TODO: If you have web page content that matches this app activity's content,
-                // make sure this auto-generated web page URL is correct.
-                // Otherwise, set the URL to null.
-                Uri.parse("http://host/path"),
-                // TODO: Make sure this auto-generated app URL is correct.
-                Uri.parse("android-app://es.usal.tfg.demos/http/host/path")
-        );
-        AppIndex.AppIndexApi.start(client, viewAction);
-    }
-
-    @Override
-    public void onStop() {
-        super.onStop();
-
-        // ATTENTION: This was auto-generated to implement the App Indexing API.
-        // See https://g.co/AppIndexing/AndroidStudio for more information.
-        Action viewAction = Action.newAction(
-                Action.TYPE_VIEW, // TODO: choose an action type.
-                "Login Page", // TODO: Define a title for the content shown.
-                // TODO: If you have web page content that matches this app activity's content,
-                // make sure this auto-generated web page URL is correct.
-                // Otherwise, set the URL to null.
-                Uri.parse("http://host/path"),
-                // TODO: Make sure this auto-generated app URL is correct.
-                Uri.parse("android-app://es.usal.tfg.demos/http/host/path")
-        );
-        AppIndex.AppIndexApi.end(client, viewAction);
-        client.disconnect();
     }
 
 

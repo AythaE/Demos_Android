@@ -15,16 +15,55 @@
     tools:showIn="@layout/app_bar_main"
 
     >
-    <TextView
-        android:id="@+id/instructions"
-        android:text="@string/instructions"
+
+    <ScrollView
+
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="match_parent">
 
-    <!-- Circular style="?android:attr/progressBarStyleLarge"-->
+        <LinearLayout
+
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:focusableInTouchMode="true">
+
+            <TextView
+                android:id="@+id/preinstructions"
+                android:text="@string/preinstructions_main"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textAppearance="?android:attr/textAppearanceMedium"/>
+
+            <android.support.design.widget.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/activity_vertical_margin">
+
+                <EditText
+                    android:id="@+id/sign_paper"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/prompt_sign_paper"
+                    android:inputType="number"
+                    android:maxLines="1"
+                    android:singleLine="true" />
+
+            </android.support.design.widget.TextInputLayout>
+
+            <TextView
+                android:id="@+id/postinstructions"
+                android:text="@string/postinstructions_main"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/activity_vertical_margin"
+                android:textAppearance="?android:attr/textAppearanceMedium"/>
+
+        <!-- Circular style="?android:attr/progressBarStyleLarge"-->
 
 
 
 
-
+        </LinearLayout>
+    </ScrollView>
 </RelativeLayout>

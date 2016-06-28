@@ -1,11 +1,13 @@
 <resources>
     <string name="app_name">Demos</string>
     <string name="action_settings">Settings</string>
+
     <string name="upload_dialog_title">Subiendo las fotos</string>
     <string name="result_dialog_title">Resultado de la subida</string>
     <string name="result_dialog_button">Aceptar</string>
     <string name="register_dialog_title">Registrando campaña</string>
     <string name="login_dialog_title">Iniciando sesión</string>
+
     <string name="toastMakeFrontPhoto">Haga una foto de la parte frontal del DNI.</string>
     <string name="toastMakeBackPhoto">Ahora, haga una foto de la parte trasera del DNI.</string>
     <string name="toastWrongUploadingResult">Error subiendo las fotos al servidor,\nintentelo de nuevo más tarde</string>
@@ -15,28 +17,47 @@
     <string name="toastCorrectUploadingResult">Fotos subidas correctamente al servidor</string>
     <string name="toastCorrectRegisterResult">Campaña registrada correctamente</string>
     <string name="toastCorrectLoginResult">Sesión iniciada correctamente</string>
+    <string name="toastMainForbidden">No puede enviar DNIs sin haber iniciado sesión en alguna campaña previamente</string>
+
+    <string name="login_drawer_title">Iniciar sesión en otra campaña</string>
+    <string name="register_drawer_title">Registrar una campaña</string>
+    <string name="main_drawer_title">Enviar DNI</string>
+    <string name="instructions_drawer_title">Instrucciones</string>
+
+    <string name="header_title">Campaña actual:</string>
+    <string name="header_subtitle">Ninguna</string>
+
     <string name="title_activity_login">Login</string>
     <string name="title_activity_register">Register</string>
+
     <string name="prompt_campaign">Campaña</string>
     <string name="prompt_password">Contraseña</string>
     <string name="prompt_password_repeat">Repita la contraseña</string>
+    <string name="prompt_sign_paper">Número de hoja de firmas</string>
+    <string name="prompt_date">Fecha de borrado de campaña</string>
+
     <string name="action_sign_in">Inicia sesión</string>
     <string name="action_sign_in_short">Inicia\nsesión</string>
     <string name="action_preregister">¿Aún no tienes campaña?\nCrea una nueva campaña</string>
     <string name="action_register">Crea una nueva campaña</string>
-    <string name="action_register_short">Registra</string>
+
     <string name="error_field_required">Campo requerido</string>
     <string name="error_invalid_campaign">Campaña inválida, debe de tener una longitud de, al menos,
                                         2 caracteres alfanumericos o . _ -</string>
     <string name="error_invalid_password">Campaña inválida, debe de tener una longitud de, al menos, 8 caracteres ASCII</string>
     <string name="error_passwords_not_equals">Las contraseñas no coinciden</string>
     <string name="error_incorrect_password">Contraseña incorrecta</string>
-    <string name="instructions"><big>Para tomar las fotos pulse el boton inferior con el simbolo +.</big>
-        \nTras esto se le pedirá hacer una foto a la parte frontal del DNI (la que contiene la foto).
-        \nA continuación gire el DNI y haga lo mismo con la otra cara.
-        \nAparecerá un dialogo que le mostrara el progreso y resultado de la subida.</string>
-    <string name="title_activity_test">TestActivity</string>
+    <string name="error_invalid_date">La fecha de borrado ha de ser posterior a la actual</string>
+    <string name="error_invalid_sign_paper">El número ha de ser positivo</string>
 
+    <string name="preinstructions_main"><b>Para enviar una firma introduzca el número de la hoja de firmas
+        en la que se encuentre esta y pulse el boton verde con el simbolo +.</b></string>
+    <string name="postinstructions_main">Tras esto se le pedirá hacer una foto a la parte frontal del DNI (la que contiene la foto).
+        A continuación gire el DNI y haga lo mismo con la otra cara.
+        Aparecerá un dialogo que le mostrara el progreso y resultado de la operación.</string>
+
+    <string name="title_instructions">Preguntas frecuentes</string>
+<string name="bad_picture_instructions"><big>¿Qué hacer si mis fotos son rechazadas?</big>\n\nEsto es una puta prueba</string>
     <string name="navigation_drawer_open">Open navigation drawer</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>
 

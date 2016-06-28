@@ -11,7 +11,7 @@
     android:gravity="center_horizontal"
     app:layout_behavior="@string/appbar_scrolling_view_behavior"
     tools:context="es.usal.tfg.demos.LoginActivity"
-    tools:showIn="@layout/activity_login">
+    tools:showIn="@layout/app_bar_login">
 
     <!--
     <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
