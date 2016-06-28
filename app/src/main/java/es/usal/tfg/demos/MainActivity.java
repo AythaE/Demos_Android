@@ -65,6 +65,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     private static long numSignPaper;
 
 
+    private static String campaignName;
+
     //Statics fields to try to avoid orientations change bugs (because of recreation of the activity)
     private static Future<Response<String>> upload;
     private static AlertDialog UploadDialog, ResultDialog;
@@ -140,7 +142,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         View header = navigationView.getHeaderView(0);
         TextView headerCampaign = (TextView) header.findViewById(R.id.campaign_header_textview);
         Intent intent = getIntent();
-        String campaignName = intent.getStringExtra("campaignName");
+        campaignName = intent.getStringExtra("campaignName");
         if (campaignName != null){
             Log.d(TAG, "CampaignName: "+campaignName+" TextView: "+headerCampaign);
             headerCampaign.setText(campaignName);
@@ -774,6 +776,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
         } else if (id == R.id.instructions_drawer_item) {
             Intent intent = new Intent(MainActivity.this, InstructionsActivity.class);
+            if (campaignName !=null)
+                intent.putExtra("campaignName", campaignName);
             startActivity(intent);
 
         } else if (id == R.id.main_drawer_item) {

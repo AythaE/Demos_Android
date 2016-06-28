@@ -27,8 +27,10 @@ import java.io.IOException;
 public class InstructionsActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener {
 
     private NavigationView navigationView;
-    private ImageButton expandButton, expandButton2;
-    private TextView textView, textView2;
+    private ImageButton expandButton, expandButton2, expandButton3;
+    private TextView textView, textView2, textView3;
+
+    private static String campaignName;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -70,7 +72,7 @@ public class InstructionsActivity extends AppCompatActivity implements Navigatio
         View header = navigationView.getHeaderView(0);
         TextView headerCampaign = (TextView) header.findViewById(R.id.campaign_header_textview);
         Intent intent = getIntent();
-        String campaignName = intent.getStringExtra("campaignName");
+        campaignName = intent.getStringExtra("campaignName");
         if (campaignName != null){
             Log.d(MainActivity.TAG, "CampaignName: "+campaignName+" TextView: "+headerCampaign);
             headerCampaign.setText(campaignName);
@@ -95,14 +97,14 @@ public class InstructionsActivity extends AppCompatActivity implements Navigatio
             }
         }
 
-        textView = (TextView) findViewById(R.id.test);
+        textView = (TextView) findViewById(R.id.bad_picture_instruction);
         textView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 onClickExpandButton(textView, expandButton);
             }
         });
-        expandButton = (ImageButton) findViewById(R.id.expand_button);
+        expandButton = (ImageButton) findViewById(R.id.bad_picture_expand);
         expandButton.setImageResource(R.drawable.ic_expand_more_white_24dp);
         expandButton.setTag("expand_more");
         expandButton.setOnClickListener(new View.OnClickListener() {
@@ -114,14 +116,14 @@ public class InstructionsActivity extends AppCompatActivity implements Navigatio
             }
         });
 
-        textView2 = (TextView) findViewById(R.id.test2);
+        textView2 = (TextView) findViewById(R.id.photo_destination_instructions);
         textView2.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 onClickExpandButton(textView2, expandButton2);
             }
         });
-        expandButton2 = (ImageButton) findViewById(R.id.expand_button2);
+        expandButton2 = (ImageButton) findViewById(R.id.photo_destination_expand);
         expandButton2.setImageResource(R.drawable.ic_expand_more_white_24dp);
         expandButton2.setTag("expand_more");
         expandButton2.setOnClickListener(new View.OnClickListener() {
@@ -129,6 +131,25 @@ public class InstructionsActivity extends AppCompatActivity implements Navigatio
             public void onClick(View v) {
 
                 onClickExpandButton(textView2, expandButton2);
+
+            }
+        });
+
+        textView3 = (TextView) findViewById(R.id.how_to_retrieve_instructions);
+        textView3.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                onClickExpandButton(textView3, expandButton3);
+            }
+        });
+        expandButton3 = (ImageButton) findViewById(R.id.how_to_retrieve_expand);
+        expandButton3.setImageResource(R.drawable.ic_expand_more_white_24dp);
+        expandButton3.setTag("expand_more");
+        expandButton3.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+                onClickExpandButton(textView3, expandButton3);
 
             }
         });
@@ -195,7 +216,7 @@ public class InstructionsActivity extends AppCompatActivity implements Navigatio
             else{
 
                 Intent intent = new Intent(InstructionsActivity.this, MainActivity.class);
-
+                intent.putExtra("campaignName", campaignName);
                 startActivity(intent);
             }
         }

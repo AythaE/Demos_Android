@@ -41,52 +41,80 @@
 
             <TextView
 
-                android:id="@+id/test"
+                android:id="@+id/bad_picture_instruction"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-
+                android:textAppearance="?android:attr/textAppearanceMedium"
                 android:layout_marginTop="@dimen/activity_horizontal_margin"
                 android:layout_below="@id/title_instructions"
                 android:text="@string/bad_picture_instructions"
                 android:maxLines="2"
                 />
             <ImageButton
-                android:id="@+id/expand_button"
+                android:id="@+id/bad_picture_expand"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_alignParentRight="true"
-                android:layout_below="@id/test"
+                android:layout_below="@id/bad_picture_instruction"
                 android:background="@android:color/transparent"
                 />
 
             <View
                 android:background="@color/secondary_text_default_my_theme"
-                android:layout_below="@id/expand_button"
+                android:layout_below="@id/bad_picture_expand"
                 android:layout_width = "fill_parent"
                 android:layout_height="1dip"
                 android:layout_centerVertical ="true"/>
             <TextView
 
-                android:id="@+id/test2"
+                android:id="@+id/photo_destination_instructions"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/activity_horizontal_margin"
-                android:layout_below="@id/expand_button"
-                android:text="@string/postinstructions_main"
+                android:layout_below="@id/bad_picture_expand"
+                android:text="@string/photo_destination_instructions"
                 android:textAppearance="?android:attr/textAppearanceMedium"
-                android:maxLines="1"
+                android:maxLines="2"
                 />
             <ImageButton
-                android:id="@+id/expand_button2"
+                android:id="@+id/photo_destination_expand"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_alignParentRight="true"
-                android:layout_below="@id/test2"
+                android:layout_below="@id/photo_destination_instructions"
                 android:background="@android:color/transparent"
                 />
             <View
                 android:background="@color/secondary_text_default_my_theme"
-                android:layout_below="@id/expand_button2"
+                android:layout_below="@id/photo_destination_expand"
+                android:layout_width = "fill_parent"
+                android:layout_height="1dip"
+                android:layout_centerVertical ="true"/>
+
+
+            <TextView
+
+                android:id="@+id/how_to_retrieve_instructions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/activity_horizontal_margin"
+                android:layout_below="@id/photo_destination_expand"
+                android:text="@string/how_to_retrieve_instructions"
+                android:textAppearance="?android:attr/textAppearanceMedium"
+                android:autoLink="web"
+                android:maxLines="2"
+                />
+            <ImageButton
+                android:id="@+id/how_to_retrieve_expand"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentRight="true"
+                android:layout_below="@id/how_to_retrieve_instructions"
+                android:background="@android:color/transparent"
+                />
+            <View
+                android:background="@color/secondary_text_default_my_theme"
+                android:layout_below="@id/how_to_retrieve_expand"
                 android:layout_width = "fill_parent"
                 android:layout_height="1dip"
                 android:layout_centerVertical ="true"/>

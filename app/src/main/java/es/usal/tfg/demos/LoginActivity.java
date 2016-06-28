@@ -240,7 +240,9 @@ public class LoginActivity extends AppCompatActivity implements NavigationView.O
             startActivity(intent);
 
         } else if (id == R.id.instructions_drawer_item) {
-            retVal =false;
+            Intent intent = new Intent(LoginActivity.this, InstructionsActivity.class);
+
+            startActivity(intent);
         } else if (id == R.id.main_drawer_item) {
             File tokenFile = new File(getFilesDir().getAbsolutePath() + "/.token");
 

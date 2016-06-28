@@ -41,6 +41,7 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.sql.Ref;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -367,7 +368,9 @@ public class RegisterActivity extends AppCompatActivity implements NavigationVie
         } else if (id == R.id.register_drawer_item) {
 
         } else if (id == R.id.instructions_drawer_item) {
-            retVal= false;
+            Intent intent = new Intent(RegisterActivity.this, InstructionsActivity.class);
+
+            startActivity(intent);
         } else if (id == R.id.main_drawer_item) {
 
             File tokenFile = new File(getFilesDir().getAbsolutePath() + "/.token");
