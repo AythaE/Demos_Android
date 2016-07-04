@@ -59,22 +59,26 @@
     <string name="title_instructions">Preguntas frecuentes</string>
     <string name="bad_picture_instructions"><b>¿Qué hacer si mis fotos son rechazadas?</b>\n\nHaga la
         fotografía del DNI sobre un folio blanco en el esté dibujado el contorno de un DNI para favorecer
-        su reconocimiento.\nIntente que la zona del numero de DNI de la parte posterior y la del nombre y
+        su reconocimiento.\n\nIntente que la zona del numero de DNI de la parte posterior y la del nombre y
         apellidos de la posterior estén lo más enfocadas y nitidas posibles. Para ello evite usar flash,
-        las sombras o los brillos y si su camara dispone de enfoque manual apunte a estas zonas por favor.
+        las sombras o los brillos y si su camara dispone de enfoque manual apunte a estas zonas por
+        favor.\n\nProcure girar su dispositivo durante un par de segundos antes de realizar la fotografía
+        para evitar que las imagenes queden giradas 90º, lo que puede hacer fallar el proceso de
+        reconocimiento de caracteres.
     </string>
     <string name="photo_destination_instructions"><b>¿A dónde van las fotos realizadas?</b>\n\nLas fotos
-        que usted realiza se envian utilizando protocolos seguros a un servidor remoto en el cuál se
-        recorta el DNI y se intenta extraer el número de DNI así como el nombre y apellidos de este.\n
-        Dicha información, junto con la de su campaña, se almacena encriptada hasta que llega la fecha de
-        borrado de la campaña en cual automáticamente se borra toda la información de esta.
+        que usted realiza se envian utilizando protocolos seguros a un servidor remoto en el que se
+        recorta el DNI y se intenta extraer el número así como el nombre y apellidos de
+        este.\n\nDicha información, junto con la de su campaña, se almacena encriptada hasta que llega
+        la fecha de borrado de la campaña en la cual, automáticamente, se borra toda la información
+        tanto de la campaña como las imagenes de los DNI subidos.
     </string>
     <string name="how_to_retrieve_instructions"><b>¿Cómo recuperar las firmas para presentarlas?</b>\n\nPara
         recuperar el listado de firmas con las fotografías de los DNIs y el resultado del reconocimiento
         de las fotografias vaya a la URL https://prodiasv08.fis.usal.es/Demos_Rest/formDownloadQuery.html
-        en cualquier navegador web.\nLe aparecerá un mensaje indicandole que no es seguro, por favor añada
-        una excepción y en la página que le aparecerá introduzca el nombre y contraseña de su campaña.\nTras
-        esto le aparecerá un mensaje informativo con el tiempo y tamaño estimados de la descarga
+        en cualquier navegador web.\n\nLe aparecerá un mensaje indicandole que no es seguro, por favor añada
+        una excepción y en la página que se mostrará a continuación introduzca el nombre y contraseña de
+        su campaña.\n\nTras esto podrá ver un mensaje informativo con el tiempo y tamaño estimados de la descarga
         así como a donde debe dirigirse para efectuar dicha descarga.
     </string>
     <string name="navigation_drawer_open">Open navigation drawer</string>

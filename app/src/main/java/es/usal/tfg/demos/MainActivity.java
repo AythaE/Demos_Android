@@ -1,11 +1,34 @@
+/*
+ * Archivo: MainActivity.java 
+ * Proyecto: Demos_Android
+ * 
+ * Autor: Aythami Estévez Olivas
+ * Email: aythae@gmail.com
+ * Fecha: 04-jul-2016
+ * Repositorio GitHub: https://github.com/AythaE/Demos_Android
+ */
 package es.usal.tfg.demos;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+
+import com.koushikdutta.async.future.Future;
+import com.koushikdutta.async.future.FutureCallback;
+import com.koushikdutta.ion.Ion;
+import com.koushikdutta.ion.Response;
+
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
-import android.nfc.Tag;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.support.design.widget.FloatingActionButton;
@@ -28,64 +51,110 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.google.android.gms.appindexing.Action;
-import com.google.android.gms.appindexing.AppIndex;
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.koushikdutta.async.future.Future;
-import com.koushikdutta.async.future.FutureCallback;
-import com.koushikdutta.ion.Ion;
-import com.koushikdutta.ion.Response;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.List;
-
+/**
+ * Clase MainActivity que controla la ventana principal de la aplicación la 
+ * cual permite realizar las subidas de fotos al servidor.
+ */
 public class MainActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener {
 
+    /** 
+     * Constante REQUEST_IMAGE_CAPTURE usada como requestCode para lanzar los 
+     * {@link Intent} de realización de fotos. 
+     */
     private static final int REQUEST_IMAGE_CAPTURE = 1;
+    
+    /** 
+     * Constante CAPTURE_IMAGE_FILE_PROVIDER usada para acceder al 
+     * {@link FileProvider} definido en el Manifest. 
+     */
     private static final String CAPTURE_IMAGE_FILE_PROVIDER = "es.usal.tfg.demos.fileprovider";
+    
+    /** Constante PHOTOS_FOLDER. */
     private static final String PHOTOS_FOLDER="photos";
+    
+    /** Constante TAG usada para los mensajes del logcat. */
     public static final String TAG = "Demos";
-    private static final String IP = "prodiasv08.fis.usal.es";     //Change this constant with the ip of the server
-    public static final String SERVER_ADDR ="https://" + IP + ":443/Demos_Rest/rest";
+    
+    /** ConstantE SERVER_NAME. */
+    private static final String SERVER_NAME = "prodiasv08.fis.usal.es";     
+    
+    /** 
+     * Constante SERVER_ADDR que contiene la dirección principal del servicio
+     * web, sobre esta URL se añaden el método concreto de cada peticion al 
+     * servidor. 
+     * 
+     */
+    public static final String SERVER_ADDR ="https://" + SERVER_NAME + ":443/Demos_Rest/rest";
 
+    /** Constante CONNECTION_TIMEOUT de 50 segundos. */
     private static final int CONNECTION_TIMEOUT = 50;
 
 
+    /** {@link Uri} de las fotografías del DNI frontal y tasero. */
     private static Uri photoFilePathFront, photoFilePathBack;
+    
+    /** {@link File} de las fotografías del DNI frontal y tasero. */
     private static File photoFileFront, photoFileBack;
 
+    /** El campo de texto de la hoja de firmas. */
     private EditText mSignPaper;
+    
+    /** The navigation view. */
     private NavigationView navigationView;
+    
+    /** El número de la hoja de firmas. */
     private static long numSignPaper;
 
 
+    /** El nombre de la campaña. */
     private static String campaignName;
 
+    
     //Statics fields to try to avoid orientations change bugs (because of recreation of the activity)
+    
+    /** {@link Future} de la respuesta sel servidor. */
     private static Future<Response<String>> upload;
+    
+    /** {@link AlertDialog} de subida y resultados. */
     private static AlertDialog UploadDialog, ResultDialog;
+    
+    /** The result dialog message. */
     private static String resultDialogMessage = "";
+    
+    /** 
+     * Flag para controlar cuando se muesta el dialogo de subida para poder 
+     * mostrarlo en caso de que se gire la pantalla, lo que re-instancia esta 
+     * clase perdiendose todos los campos no estáticos. 
+     */
     private static boolean showingUploadDialog = false;
+    
+    /** 
+     * Flag para controlar cuando se muesta el dialogo de resultados para poder 
+     * mostrarlo en caso de que se gire la pantalla, lo que re-instancia esta 
+     * clase perdiendose todos los campos no estáticos. 
+     */
     private static boolean showingResultDialog = false;
+    
+    /** 
+     * Flag de token invalido usado para controlar cuando el token de sesion 
+     * es invalido y es necesario borrarlo y volver a {@link LoginActivity} 
+     * tras informar al usuario del error con su sesion. 
+     */
     private static boolean invalidToken = false;
-    /**
-     * ATTENTION: This was auto-generated to implement the App Indexing API.
-     * See https://g.co/AppIndexing/AndroidStudio for more information.
-     */
-    private GoogleApiClient client;
-
-    /**
-     * Reference : http://developer.android.com/intl/es/guide/topics/media/camera.html
-     * Reference : http://developer.android.com/intl/es/training/camera/photobasics.html
-     *
-     * @param savedInstanceState
-     */
+    
+	/**
+	 * Carga y configura los elementos de la UI
+	 *
+	 * @param savedInstanceState
+	 *            the saved instance state
+	 * @see <a href=
+	 *      "http://developer.android.com/intl/es/guide/topics/media/camera.html">
+	 *      Camera</a>
+	 * @see <a href=
+	 *      "http://developer.android.com/intl/es/training/camera/photobasics.html">
+	 *      Photo Basics</a>
+	 */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -151,9 +220,10 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             File tokenFile = new File(getFilesDir().getAbsolutePath() + "/.token");
 
             if (tokenFile.exists()) {
+            	BufferedReader br = null;
                 try {
 
-                    BufferedReader br = new BufferedReader(new FileReader(tokenFile));
+                    br = new BufferedReader(new FileReader(tokenFile));
 
                     campaignName = br.readLine();
 
@@ -163,7 +233,13 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                     e.printStackTrace();
                 } catch (IOException e) {
                     e.printStackTrace();
-                }
+                } finally {
+					if (br !=null) {
+						try {
+							br.close();
+						} catch (IOException e) {}
+					}
+				}
             }
         }
         UploadDialog = new AlertDialog.Builder(MainActivity.this).create();
@@ -199,10 +275,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 mSignPaper.setText("");
                 dialog.dismiss();
                 if (invalidToken){
-                    Intent intent = new Intent(MainActivity.this, LoginActivity.class);
-                    startActivity(intent);
-                    //TODO http://stackoverflow.com/questions/16419627/making-an-activity-appear-only-once-when-the-app-is-started
-                    finish();
+                    borrarSesionToken();
                 }
 
             }
@@ -212,11 +285,14 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         ResultDialog.setTitle(R.string.result_dialog_title);
 
         Log.d(TAG, "Activity created successfully");
-        // ATTENTION: This was auto-generated to implement the App Indexing API.
-        // See https://g.co/AppIndexing/AndroidStudio for more information.
-        client = new GoogleApiClient.Builder(this).addApi(AppIndex.API).build();
+        
     }
-
+    
+   /** 
+    * Al presionar el boton back si el {@link DrawerLayout} esta abierto lo
+    * cierra, en caso contrario hace lo que haría por defecto
+    * @see android.support.v4.app.FragmentActivity#onBackPressed()
+    */
     @Override
     public void onBackPressed() {
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout_main);
@@ -227,6 +303,12 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         }
     }
 
+    /**
+     * Intenta tomar fotografías, comprueba los posibles errores en el campo de
+     * numero de hoja de firmas y si todo es correcto lanza el método 
+     * {@link MainActivity#dispatchTakePictureIntent()} para tomar las 
+     * fotografías. 
+     */
     private void attemptTakePicture(){
         // Reset errors.
         mSignPaper.setError(null);
@@ -263,6 +345,13 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         }
     }
 
+    /**
+     * Comprueba que un numero de hoja de firmas se valido, este se considera 
+     * valido si es un número mayor que 0 
+     *
+     * @param signPaper numero de hoja de firmas a comprobar
+     * @return true, si la hoja de firmas es valida
+     */
     private boolean isSignPaperValid(String signPaper){
         long numSignPaperTemp = 0;
         try{
@@ -271,6 +360,15 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         return  numSignPaperTemp > 0;
     }
 
+    /**
+     * Lanza un intent para tomar una fotografía. Para ello comprueba que haya
+     * alguna aplicación capaz de tomar fotografías, tras esto comprueba si se
+     * ha tomado la foto delantera, en caso negativo lanza el {@link Intent} 
+     * para tomarla indicando en este como extra la ruta donde se almacenará
+     * dicha foto y dandole permisos a la aplicación de camara para escribir en
+     *  el directorio privado de esta aplicación. Si la fotografía delantera ya
+     *  ha sido tomada hace lo mismo con la trasera.
+     */
     private void dispatchTakePictureIntent() {
         Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
 
@@ -342,28 +440,33 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             Log.d(TAG, "NO hay aplicacion capaz de manejar el intent");
     }
 
-    /**
-     * Returns the URi of for saving the photo
-     * @reference https://developer.android.com/reference/android/support/v4/content/FileProvider.html
-     */
+	/**
+	 * Devuelve el {@link Uri} para guardar la foto.
+	 *
+	 * @return the output media file uri
+	 * @see <a href=
+	 *      "https://developer.android.com/reference/android/support/v4/content/FileProvider.html">
+	 *      Referencia</a>
+	 */
     private Uri getOutputMediaFileUri() {
 
         return FileProvider.getUriForFile(MainActivity.this ,CAPTURE_IMAGE_FILE_PROVIDER, getOutputMediaFile());
     }
 
     /**
-     * Creates the FIle for the photo
+     * Crea el {@link File} para una fotografia, dicho archivo se almacenará en
+     *  un directorio interno de la aplicación y tendra como nombre DNI_ + 
+     *  fecha y hora actual del sistema+ .jpg donde la fecha y hora actual tiene
+     *  el siguiente formato "ddMMyyyy_HHmmss_SSSS", ver 
+     *  {@link SimpleDateFormat} para más informacióm.
+     *
+     * @return the output media file
      */
     private File getOutputMediaFile() {
 
-        //TODO si no tiene tarjeta sd que
+        
         File photoStorageDir;
-        //To store the photo in a public directory that can be use from other apps (such as the media scanner)
-        //photoStorageDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "PhotoDNI");
-
-        //To store the photo in a directory for this application .
-        //Reference: http://developer.android.com/intl/es/reference/android/content/Context.html#getExternalFilesDir(java.lang.String)
-
+        
         photoStorageDir = new File(getFilesDir(), "photos");
 
         //creates the directory if doesn't exist
@@ -381,11 +484,28 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         return photoFile;
     }
 
-    /**
-     * Method invoked when the photo intent returns
-     * <p>
-     * Reference for the upload: https://github.com/koush/ion
-     */
+	/**
+	 * Metodo invocado cuando un Intent de retorna (ya ha tomado una fotografia
+	 * ) en el se comprueba que se haya romado correctamente, en cuyo caso si no
+	 * se ha tomado la segunda fotografía se vuelve al método
+	 * {@link MainActivity#dispatchTakePictureIntent()}, si ambas han sido
+	 * tomadas se crean los ficheros con las rutas usadas por los Intents y se
+	 * eliminan los permisos sobre dichas rutas.
+	 * 
+	 *
+	 * @param requestCode
+	 *            RequestCode del intent que arrancó la toma de fotografías
+	 * @param resultCode
+	 *            Codigo de resultado del intent
+	 * @param data
+	 *            datos devueltos
+	 * 
+	 * @see <a href=
+	 *      "https://medium.com/@a1cooke/using-v4-support-library-fileprovider-and-camera-intent-a45f76879d61#.6wu8mv2ya">
+	 *      FileProvider Example</a>
+	 *
+	 * 
+	 */
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 
@@ -436,6 +556,16 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         }
     }
 
+    /**
+     * Método que efectua la subida de las fotografías, para ello muestar un 
+     * dialogo para informar al usuario del progreso de esta subida y realiza
+     * la petición al servidor, añadiendo ademas de las fotografías el nombre 
+     * de la campaña, el número de la hoja de firmas (ambos en Base64) y el 
+     * token de sesión
+     * 
+	 * @see <a href="https://github.com/koush/ion">Referencia librería para
+	 *      establecer las conexiones</a>
+     */
     private void uploadFile() {
 
         /**
@@ -460,10 +590,11 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         if (tokenFile.exists()) {
             Log.d(MainActivity.TAG, "Token en: " + tokenFile.getAbsolutePath());
 
-
+            
+            BufferedReader br = null;
             try {
 
-                BufferedReader br = new BufferedReader(new FileReader(tokenFile));
+                br = new BufferedReader(new FileReader(tokenFile));
                 String line;
                 String campaña = null;
                 while ((line = br.readLine()) != null) {
@@ -474,7 +605,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                             token = new String(line);
                     }
                     Log.d(MainActivity.TAG, line);
-                }
+                } 
 
 
                 campaña64 = Base64.encodeToString(campaña.getBytes("UTF-8"), Base64.NO_WRAP);
@@ -483,12 +614,19 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 Log.d(MainActivity.TAG, "Token definitivo: " + token);
 
 
-            } catch (FileNotFoundException e) {
+            } catch (Exception e) {
                 e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+                
+                Toast t = Toast.makeText(MainActivity.this, "Error con su sesión de usuario", Toast.LENGTH_LONG);
+                TextView v = (TextView) t.getView().findViewById(android.R.id.message);
+                if (v != null) {
+                    v.setGravity(Gravity.CENTER);
+                }
+                t.show();
+                borrarSesionToken();
+            } 
 
+            CheckSessionActivity.trustServerCertificate(MainActivity.this);
             String uploadURL = SERVER_ADDR + "/files/upload";
             upload = Ion.with(this)
                     .load(uploadURL)
@@ -529,36 +667,34 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
                                         if (result.getHeaders().code() == 404 || result.getHeaders().code() >= 510) {
                                             String message = null;
-                                            byte[] datos = Base64.decode(message64, Base64.NO_WRAP);
-                                            message = new String(datos);
-                                            resultDialogMessage = message;
-                                            if (result.getHeaders().code() == 404){
-                                                File tokenFile = new File(getFilesDir().getAbsolutePath() + "/.token");
+                                            try {
+	                                            byte[] datos = Base64.decode(message64, Base64.NO_WRAP);
+	                                            message = new String(datos);
+	                                            resultDialogMessage = message;
+                                            }catch (Exception e2){
+                                            	resultDialogMessage = getString(R.string.toastWrongUploadingResult);
 
-                                                if (!tokenFile.delete()){
-                                                    Log.d(TAG, "Error borrando archivo token");
-                                                }
+                                            }
+                                            if (result.getHeaders().code() == 404){
+                                               
                                                 invalidToken = true;
                                             }
-                                            //toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show();
+                                            
                                         } else {
                                             resultDialogMessage = getString(R.string.toastWrongUploadingResult);
 
-                                            //toast.makeText(MainActivity.this, R.string.toastWrongUploadingResult, Toast.LENGTH_LONG).show();
                                         }
 
                                     } else {
                                         resultDialogMessage = getString(R.string.toastWrongUploadingResult);
-                                        //toast.makeText(MainActivity.this, R.string.toastWrongUploadingResult, Toast.LENGTH_LONG).show();
                                     }
                                 }
 
 
                             } else {
                                 resultDialogMessage = getString(R.string.toastCorrectUploadingResult);
-                               // toast.makeText(MainActivity.this, R.string.toastCorrectUploadingResult, Toast.LENGTH_LONG).show();
-
                             }
+                            
                             if (UploadDialog.isShowing()) {
                                 UploadDialog.dismiss();
                                 ResultDialog.setMessage(resultDialogMessage);
@@ -573,6 +709,14 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         }
         else{
             Log.d(TAG, "no se encuentra el fichero token");
+            
+            Toast t = Toast.makeText(MainActivity.this, "Error con su sesión de usuario", Toast.LENGTH_LONG);
+            TextView v = (TextView) t.getView().findViewById(android.R.id.message);
+            if (v != null) {
+                v.setGravity(Gravity.CENTER);
+            }
+            t.show();
+            borrarSesionToken();
         }
 
 
@@ -580,7 +724,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     }
 
     /**
-     * Method used to cancel pending uploads and reset progressbar after / before an upload
+     * Method used to cancel pending uploads.
      */
     private void resetUpload() {
         //To cancel pending uploads
@@ -590,13 +734,12 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
         upload = null;
 
-        //deletePhoto();
-        /*
-        uploadPBar.setProgress(0);
-        uploadPBar.setVisibility(View.INVISIBLE);
-        */
+       
     }
 
+    /**
+     * Reinicia el tomado de fotos poniendo todo a null.
+     */
     private void resetPhotoTaking ()
     {
         photoFileBack =null;
@@ -604,8 +747,30 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         photoFilePathFront=null;
         photoFileFront=null;
     }
+    
+    /**
+     * Reinicia el tomado de fotos poniendo todo a null.
+     */
+    private void borrarSesionToken(){
+    	 File tokenFile = new File(getFilesDir().getAbsolutePath() + "/.token");
+
+         if (tokenFile != null) {
+        	 if (tokenFile.exists()) {
+        		 if(!tokenFile.delete()){
+        	         
+                     Log.d(TAG, "Error borrando archivo token");
+                 }
+			}
+         }
+        	 
+         Intent intent = new Intent(MainActivity.this, LoginActivity.class);
+         startActivity(intent);
+         finish();
+    }
+    /**
+     * Borra todo el contenido de la carpeta de fotos interna de la aplicación.
+     */
     private void deletePhoto() {
-        //TODO borrar foto trasera
 
         File photoDirectory = new File(getFilesDir(), PHOTOS_FOLDER);
 
@@ -638,6 +803,11 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         muestraAchivosEnDirectorio(getFilesDir());
     }
 
+    /**
+     * Muestra achivos en directorio.
+     *
+     * @param dir the dir
+     */
     private void muestraAchivosEnDirectorio(File dir){
 
 
@@ -659,46 +829,17 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         }
         return;
     }
-    @Override
-    public void onStart() {
-        super.onStart();
+   
 
-        // ATTENTION: This was auto-generated to implement the App Indexing API.
-        // See https://g.co/AppIndexing/AndroidStudio for more information.
-        client.connect();
-        Action viewAction = Action.newAction(
-                Action.TYPE_VIEW, // TODO: choose an action type.
-                "Main Page", // TODO: Define a title for the content shown.
-                // TODO: If you have web page content that matches this app activity's content,
-                // make sure this auto-generated web page URL is correct.
-                // Otherwise, set the URL to null.
-                Uri.parse("http://host/path"),
-                // TODO: Make sure this auto-generated app URL is correct.
-                Uri.parse("android-app://es.usal.tfg.demos/http/host/path")
-        );
-        AppIndex.AppIndexApi.start(client, viewAction);
-    }
-
-    @Override
-    public void onStop() {
-        super.onStop();
-
-        // ATTENTION: This was auto-generated to implement the App Indexing API.
-        // See https://g.co/AppIndexing/AndroidStudio for more information.
-        Action viewAction = Action.newAction(
-                Action.TYPE_VIEW, // TODO: choose an action type.
-                "Main Page", // TODO: Define a title for the content shown.
-                // TODO: If you have web page content that matches this app activity's content,
-                // make sure this auto-generated web page URL is correct.
-                // Otherwise, set the URL to null.
-                Uri.parse("http://host/path"),
-                // TODO: Make sure this auto-generated app URL is correct.
-                Uri.parse("android-app://es.usal.tfg.demos/http/host/path")
-        );
-        AppIndex.AppIndexApi.end(client, viewAction);
-        client.disconnect();
-    }
-
+    
+    /**
+     * Al entrar en primer plano selecciona el campo Main Item de la
+     * {@link NavigationView} y además comprueba si se estaba mostrando el 
+     * dialogo {@link MainActivity#UploadDialog}, en cuyo caso lo 
+     * despliega y lo mismo con {@link MainActivity#ResultDialog}. 
+     * 
+     * @see android.support.v4.app.FragmentActivity#onResume()
+     */
     @Override
     protected void onResume() {
         super.onResume();
@@ -717,7 +858,16 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             showingResultDialog = false;
         }
     }
-
+    
+    /** 
+  	 * Invocado al destruir la actividad, comprueba si se estaba mostrando los
+     * dialogos {@link MainActivity#UploadDialog} y 
+     * {@link MainActivity#ResultDialog}, en cuyo caso 
+     * fija los flag {@link MainActivity#showingUploadDialog} y 
+     * {@link MainActivity#showingResultDialog} a true (respectivamente) para 
+     * que se muestre cuando vuelva y cierra el dialogo actual. 
+     * @see android.support.v7.app.AppCompatActivity#onDestroy()
+     */
     @Override
     protected void onDestroy() {
         super.onDestroy();
@@ -732,31 +882,12 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         }
     }
 
-    /*
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.menu_main, menu);
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
-
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
-            return true;
-        }
-
-        return super.onOptionsItemSelected(item);
-    }
-*/
-
+    
+    /** 
+     * Controla las acciones a tomar al seleccionar los distintos campos de la 
+     * {@link NavigationView} que permiten cambiar entre actividades
+     * @see android.support.design.widget.NavigationView.OnNavigationItemSelectedListener#onNavigationItemSelected(android.view.MenuItem)
+     */
     @Override
     public boolean onNavigationItemSelected(MenuItem item) {
         // Handle navigation view item clicks here.

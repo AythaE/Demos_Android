@@ -1,3 +1,12 @@
+/*
+ * Archivo: InstructionsActivity.java 
+ * Proyecto: Demos_Android
+ * 
+ * Autor: Aythami Estévez Olivas
+ * Email: aythae@gmail.com
+ * Fecha: 04-jul-2016
+ * Repositorio GitHub: https://github.com/AythaE/Demos_Android
+ */
 package es.usal.tfg.demos;
 
 import android.content.Context;
@@ -24,13 +33,29 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 
+/**
+ * Clase InstructionsActivity encargada de controlar una pantalla en la que se 
+ * muestran algunas preguntas frecuentes de los usuarios para que les sirva de 
+ * ayuda.
+ */
 public class InstructionsActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener {
 
+    /** The navigation view. */
     private NavigationView navigationView;
+    
+    /** Los botones de expansion de los tres {@link TextView}. */
     private ImageButton expandButton, expandButton2, expandButton3;
+    
+    /** Los tres {@link TextView} de instrucciones. */
     private TextView textView, textView2, textView3;
 
+    /** The campaign name. */
     private static String campaignName;
+    
+    /**
+     * Creación de la actividad cargando y configurando su interfaz gráfica
+     * @see android.support.v7.app.AppCompatActivity#onCreate(android.os.Bundle)
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -81,9 +106,10 @@ public class InstructionsActivity extends AppCompatActivity implements Navigatio
             File tokenFile = new File(getFilesDir().getAbsolutePath() + "/.token");
 
             if (tokenFile.exists()) {
+            	BufferedReader br = null;
                 try {
 
-                    BufferedReader br = new BufferedReader(new FileReader(tokenFile));
+                    br = new BufferedReader(new FileReader(tokenFile));
 
                     campaignName = br.readLine();
 
@@ -94,6 +120,13 @@ public class InstructionsActivity extends AppCompatActivity implements Navigatio
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
+                finally {
+					if (br!= null) {
+						try {
+							br.close();
+						} catch (IOException e) {}
+					}
+				}
             }
         }
 
@@ -154,6 +187,12 @@ public class InstructionsActivity extends AppCompatActivity implements Navigatio
             }
         });
     }
+    
+    /** 
+     * Al presionar el boton back si el {@link DrawerLayout} esta abierto lo
+     * cierra, en caso contrario hace lo que haría por defecto
+     * @see android.support.v4.app.FragmentActivity#onBackPressed()
+     */
     @Override
     public void onBackPressed() {
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout_instructions);
@@ -163,6 +202,15 @@ public class InstructionsActivity extends AppCompatActivity implements Navigatio
             super.onBackPressed();
         }
     }
+     
+     /**
+      * Ejecutado al tocar en cualquiera de los {@link TextView} o ExpandButtons
+      * Expande o contrae el TextView tv en funcion de su estado actual y cambia
+      * el icono del {@link ImageButton} imButton segun su estado
+      *
+      * @param tv el {@link TextView}
+      * @param imButton el {@link ImageButton}
+      */
      private void onClickExpandButton(TextView tv, ImageButton imButton){
          Log.d(MainActivity.TAG, "cambiando icono");
          if (imButton.getTag().equals("expand_more")){
@@ -175,12 +223,23 @@ public class InstructionsActivity extends AppCompatActivity implements Navigatio
              imButton.setTag("expand_more");
          }
      }
+    
+    /**
+     * Al entrar en primer plano selecciona el campo Instructions Item de la
+     * {@link NavigationView}
+     * @see android.support.v4.app.FragmentActivity#onResume()
+     */
     @Override
     protected void onResume() {
         super.onResume();
         navigationView.setCheckedItem(R.id.instructions_drawer_item);
     }
 
+    /** 
+     * Controla las acciones a tomar al seleccionar los distintos campos de la 
+     * {@link NavigationView} que permiten cambiar entre actividades
+     * @see android.support.design.widget.NavigationView.OnNavigationItemSelectedListener#onNavigationItemSelected(android.view.MenuItem)
+     */
     @Override
     public boolean onNavigationItemSelected(MenuItem item) {
         // Handle navigation view item clicks here.

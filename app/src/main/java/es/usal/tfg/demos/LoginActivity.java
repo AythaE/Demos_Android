@@ -1,8 +1,28 @@
+/*
+ * Archivo: LoginActivity.java 
+ * Proyecto: Demos_Android_Doc
+ * 
+ * Autor: Aythami Estévez Olivas
+ * Email: aythae@gmail.com
+ * Fecha: 04-jul-2016
+ * Repositorio GitHub: https://github.com/AythaE/Demos_Android
+ */
 package es.usal.tfg.demos;
+
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.util.concurrent.ExecutionException;
+
+import com.koushikdutta.ion.Ion;
+import com.koushikdutta.ion.Response;
 
 import android.content.Context;
 import android.content.Intent;
-import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.design.widget.NavigationView;
@@ -16,56 +36,60 @@ import android.text.TextUtils;
 import android.util.Base64;
 import android.util.Log;
 import android.view.Gravity;
-import android.view.KeyEvent;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.google.android.gms.appindexing.Action;
-import com.google.android.gms.appindexing.AppIndex;
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.koushikdutta.ion.Ion;
-import com.koushikdutta.ion.Response;
-
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.util.concurrent.ExecutionException;
-
 /**
- * A login screen that offers login via email/password.
+ * Clase LoginActivity que controla una ventana con los campos necesarios para
+ * iniciar sesión en una campaña .
  */
 public class LoginActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener {
 
 
     /**
-     * Keep track of the login task to ensure we can cancel it if requested.
+     * Instancia de la tarea que realizara la peticion de login de manera 
+     * asíncrona.
      */
-    private UserLoginTask mAuthTask = null;
+    private static UserLoginTask mAuthTask = null;
 
     // UI references.
+   
+    /** El campo de texto de la campaña. */
     private EditText mCampaignView;
+    
+    /** El campo de texto de la contraseña. */
     private EditText mPasswordView;
+    
+    /** The navigation view. */
     private NavigationView navigationView;
 
     //Statics fields to try to avoid orientations change bugs (because of recreation of the activity)
+   
+    /** Response devuelto por la conexión al servidor. */
     private static Response<String> loginResp = null;
+    
+    /** The connection timeout, 20 segundos. */
     private static int CONNECTION_TIMEOUT = 20;
-    /**
-     * ATTENTION: This was auto-generated to implement the App Indexing API.
-     * See https://g.co/AppIndexing/AndroidStudio for more information.
-     */
-    private GoogleApiClient client;
 
+    /** El {@link AlertDialog} de login. */
+    private static AlertDialog loginDialog;
+
+    /**
+     * Flag para controlar cuando se muestra el dialogo de login para poder
+     * mostrarlo en caso de que se gire la pantalla, lo que re-instancia esta
+     * clase perdiendose todos los campos no estáticos.
+     */
+    private static boolean showingLoginDialog = false;
+
+    /**
+     * Carga y configura la UI
+     * @see android.support.v7.app.AppCompatActivity#onCreate(android.os.Bundle)
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -109,17 +133,7 @@ public class LoginActivity extends AppCompatActivity implements NavigationView.O
 
 
         mPasswordView = (EditText) findViewById(R.id.password_login);
-        mPasswordView.setOnEditorActionListener(new TextView.OnEditorActionListener() {
-            @Override
-            //TODO no funciona, intentar arreglar o borrarlo
-            public boolean onEditorAction(TextView textView, int id, KeyEvent keyEvent) {
-                if (id == R.id.login_form || id == EditorInfo.IME_NULL) {
-                    attemptLogin();
-                    return true;
-                }
-                return false;
-            }
-        });
+       
 
         Button mSignInButton = (Button) findViewById(R.id.sign_in_button);
         mSignInButton.setOnClickListener(new View.OnClickListener() {
@@ -137,10 +151,22 @@ public class LoginActivity extends AppCompatActivity implements NavigationView.O
             }
         });
 
-        // ATTENTION: This was auto-generated to implement the App Indexing API.
-        // See https://g.co/AppIndexing/AndroidStudio for more information.
-        client = new GoogleApiClient.Builder(this).addApi(AppIndex.API).build();
+
+        loginDialog = new AlertDialog.Builder(LoginActivity.this).create();
+
+        //TODO check al girar pantalla
+        loginDialog.setView(getLayoutInflater().inflate(R.layout.uploading_dialog, null));
+        loginDialog.setTitle(R.string.login_dialog_title);
+        loginDialog.setCancelable(false);
+        loginDialog.setCanceledOnTouchOutside(false);
+
     }
+    
+    /** 
+     * Al presionar el boton back si el {@link DrawerLayout} esta abierto lo
+     * cierra, en caso contrario hace lo que haría por defecto
+     * @see android.support.v4.app.FragmentActivity#onBackPressed()
+     */
     @Override
     public void onBackPressed() {
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout_login);
@@ -151,17 +177,21 @@ public class LoginActivity extends AppCompatActivity implements NavigationView.O
         }
     }
 
+    /**
+     * Invocado cuando se pulsa en en el boton de registrar campaña, 
+     * simplemente cambia a dicha actividad.
+     */
     private void launchRegister() {
         Intent intent = new Intent(LoginActivity.this, RegisterActivity.class);
         startActivity(intent);
-        //TODO http://stackoverflow.com/questions/16419627/making-an-activity-appear-only-once-when-the-app-is-started
-        //finish();
+        
     }
 
     /**
-     * Attempts to sign in or register the account specified by the login form.
-     * If there are form errors (invalid email, missing fields, etc.), the
-     * errors are presented and no actual login attempt is made.
+     * Intenta iniciar sesión en la campaña especificada en el formulario de 
+     * login, comprueba los posibles errores en los campos y si todo es correcto
+     * instancia y lanza {@link LoginActivity#mAuthTask} que efectúa la conexión
+     * con el servidor.
      */
     private void attemptLogin() {
         if (mAuthTask != null) {
@@ -207,25 +237,45 @@ public class LoginActivity extends AppCompatActivity implements NavigationView.O
             focusView.setFocusable(true);
             focusView.requestFocus();
         } else {
-            // Show a progress spinner, and kick off a background task to
-            // perform the user login attempt.
-            //showProgress(true);
+           
             mAuthTask = new UserLoginTask(campaing, password);
             mAuthTask.execute((Void) null);
         }
     }
 
-    private boolean isCampaignValid(String campaign) {
-        //TODO: Replace this with your own logic
+    /**
+     * Comprueba si una campaña es valida, esta se considera valida si contiene
+     *  dos o más caracters alfa numéricos, o los signos ., _ y -.
+     *
+     * @param campaign cadena de caracteres introducida en 
+     * {@link LoginActivity#mCampaignView} a comprobar
+     * @return true, si la campa es valida
+     */
+	private boolean isCampaignValid(String campaign) {
 
-        return  campaign.length() >= 2 && campaign.matches("^[a-zA-Z0-9]+[a-zA-Z0-9\\._-]*$");
-    }
+		return campaign.length() >= 2 && campaign.matches("^[a-zA-Z0-9]+[a-zA-Z0-9\\._-]*$");
+	}
 
+    /**
+     * Comprueba si una contraseña es valida, esta se considera valida si 
+     * contiene al menos 8 caracteres que pueden ser: letras (mayusculas o 
+     * minusculas), numeros, puntos, asteriscos, #,...
+     *
+     *
+     * @param password la contraseña introducida en 
+     * {@link LoginActivity#mPasswordView}
+     * @return true, if is password valid
+     */
     private boolean isPasswordValid(String password) {
-        //TODO: Replace this with your own logic
+       
         return password.length() >= 8 && password.matches("^[a-zA-Z0-9\\.\\*#%&()=+:;,<>_!?-]*$");
     }
 
+    /** 
+     * Controla las acciones a tomar al seleccionar los distintos campos de la 
+     * {@link NavigationView} que permiten cambiar entre actividades
+     * @see android.support.design.widget.NavigationView.OnNavigationItemSelectedListener#onNavigationItemSelected(android.view.MenuItem)
+     */
     @SuppressWarnings("StatementWithEmptyBody")
     @Override
     public boolean onNavigationItemSelected(MenuItem item) {
@@ -269,96 +319,110 @@ public class LoginActivity extends AppCompatActivity implements NavigationView.O
         return retVal;
     }
 
+    /**
+     * Al entrar en primer plano selecciona el campo Login Item de la
+     * {@link NavigationView}, además comprueba si se estaba mostrando el
+     * dialogo {@link LoginActivity#loginDialog}, en cuyo caso lo
+     * despliega.
+     * @see android.support.v4.app.FragmentActivity#onResume()
+     */
     @Override
     protected void onResume() {
         super.onResume();
         navigationView.setCheckedItem(R.id.login_drawer_item);
+        if (showingLoginDialog){
+            loginDialog.show();
+            showingLoginDialog = false;
+        }
     }
 
 
+
+    /**
+     * Invocado al destruir la actividad, comprueba si se estaba mostrando el
+     * dialogo {@link LoginActivity#loginDialog}, en cuyo caso lo
+     * fija el flag {@link LoginActivity#showingLoginDialog} a true para que
+     * se muestre cuando vuelva y cierra el dialogo actual.
+     * @see android.support.v7.app.AppCompatActivity#onDestroy()
+     */
     @Override
-    public void onStart() {
-        super.onStart();
+    protected void onDestroy() {
 
-        // ATTENTION: This was auto-generated to implement the App Indexing API.
-        // See https://g.co/AppIndexing/AndroidStudio for more information.
-        client.connect();
-        Action viewAction = Action.newAction(
-                Action.TYPE_VIEW, // TODO: choose an action type.
-                "Login Page", // TODO: Define a title for the content shown.
-                // TODO: If you have web page content that matches this app activity's content,
-                // make sure this auto-generated web page URL is correct.
-                // Otherwise, set the URL to null.
-                Uri.parse("http://host/path"),
-                // TODO: Make sure this auto-generated app URL is correct.
-                Uri.parse("android-app://es.usal.tfg.demos/http/host/path")
-        );
-        AppIndex.AppIndexApi.start(client, viewAction);
-    }
+        if (loginDialog.isShowing()) {
+            loginDialog.dismiss();
+            showingLoginDialog = true;
+        }
 
-    @Override
-    public void onStop() {
-        super.onStop();
-
-        // ATTENTION: This was auto-generated to implement the App Indexing API.
-        // See https://g.co/AppIndexing/AndroidStudio for more information.
-        Action viewAction = Action.newAction(
-                Action.TYPE_VIEW, // TODO: choose an action type.
-                "Login Page", // TODO: Define a title for the content shown.
-                // TODO: If you have web page content that matches this app activity's content,
-                // make sure this auto-generated web page URL is correct.
-                // Otherwise, set the URL to null.
-                Uri.parse("http://host/path"),
-                // TODO: Make sure this auto-generated app URL is correct.
-                Uri.parse("android-app://es.usal.tfg.demos/http/host/path")
-        );
-        AppIndex.AppIndexApi.end(client, viewAction);
-        client.disconnect();
+        super.onDestroy();
     }
 
     /**
-     * Represents an asynchronous login/registration task used to authenticate
-     * the user.
+     * Representa la tarea encargada de conexión al servidor, esta lanza una 
+     * peticion de login al servidor y comprueba su respuesta. 
+     * 
      */
     public class UserLoginTask extends AsyncTask<Void, Void, Boolean> {
 
+        /** La campaña. */
         private final String mCampaign;
+        
+        /** La contraseña. */
         private final String mPassword;
 
+        /** El mensaje {@link Toast}. */
         private String toastMessage;
 
-        private final AlertDialog loginDialog;
 
+
+        /**
+         * Checks if is login succeed.
+         *
+         * @return true, if is login succeed
+         */
         public boolean isLoginSucceed() {
             return loginSucceed;
         }
 
+        /**
+         * Sets the login succeed.
+         *
+         * @param logSucceed the new login succeed
+         */
         public void setLoginSucceed(boolean logSucceed) {
             this.loginSucceed = logSucceed;
         }
 
+        /** Flag para determinar si el login ha sido correcto o no. */
         private boolean loginSucceed = false;
 
+        /**
+         * Crea una nueva instancia de esta clase.
+         *
+         * @param campaign the campaign
+         * @param password the password
+         */
         UserLoginTask(String campaign, String password) {
             mCampaign = campaign;
             mPassword = password;
 
-            loginDialog = new AlertDialog.Builder(LoginActivity.this).create();
-
-            //TODO check al girar pantalla
-            loginDialog.setView(getLayoutInflater().inflate(R.layout.uploading_dialog, null));
-            loginDialog.setTitle(R.string.login_dialog_title);
-            loginDialog.setCancelable(false);
-            loginDialog.setCanceledOnTouchOutside(false);
 
 
         }
 
+        /* (non-Javadoc)
+         * @see android.os.AsyncTask#onPreExecute()
+         */
         @Override
         protected void onPreExecute() {
             loginDialog.show();
         }
 
+        /**
+         * Realiza la conexion al servidor quedandose bloqueado hasta que este
+         * responda. Para ello codifica en Base64 la campaña y la contraseña y
+         * las envia generando un formulario application/x-www-form-urlencoded
+         * @see android.os.AsyncTask#doInBackground(java.lang.Object[])
+         */
         @Override
         protected Boolean doInBackground(Void... params) {
 
@@ -393,6 +457,16 @@ public class LoginActivity extends AppCompatActivity implements NavigationView.O
             return isLoginSucceed();
         }
 
+        
+        /**
+         * Comprueba la respuesta del servidor usando el atributo 
+         * {@link LoginActivity#loginResp}. Si la respuesta es correcta fija el
+         *  flag {@link UserLoginTask#loginSucceed} a true, en caso contrario 
+         * a false. Tambien fija el mensaje que mostrará en un {@link Toast} al
+         * usuario indicandole el resultado del login
+         *
+         * @param e posible excepcion producida en la conexión
+         */
         private void checkResponse(Exception e) {
 
             if (e != null || (loginResp != null && loginResp.getHeaders().code() != 200)) {
@@ -404,12 +478,15 @@ public class LoginActivity extends AppCompatActivity implements NavigationView.O
                 }
                 if (loginResp != null) {
 
-                    //TODO leer error response
+                    
                     Log.d(MainActivity.TAG + " response message", loginResp.getHeaders().message());
                     if((400 <= loginResp.getHeaders().code()) &&  (500 > loginResp.getHeaders().code())) {
+                    	try {
                             byte [] datos = Base64.decode( loginResp.getResult(),Base64.NO_WRAP);
                             toastMessage = new String(datos);
-
+                    	} catch (Exception e2){
+                    		toastMessage = getString(R.string.toastWrongLoginResult);
+                    	}
                     }
                     else {
                         toastMessage = getString(R.string.toastWrongLoginResult);
@@ -425,6 +502,17 @@ public class LoginActivity extends AppCompatActivity implements NavigationView.O
             }
         }
 
+        /**
+         * Hace desaparecer el dialogo {@link UserLoginTask#loginDialog}, 
+         * muestra un {@link Toast} con el resultado de la operación al usuario
+         * , si el flag {@link UserLoginTask#loginSucceed} es true guarda el 
+         * token recibido en el método 
+         * {@link UserLoginTask#saveSessionToken(String)} y pasa a 
+         * {@link MainActivity}, en caso contrario muestra el error en Log 
+         * y finaliza.
+         * 
+         * @see android.os.AsyncTask#onPostExecute(java.lang.Object)
+         */
         @Override
         protected void onPostExecute(final Boolean success) {
             mAuthTask = null;
@@ -446,7 +534,6 @@ public class LoginActivity extends AppCompatActivity implements NavigationView.O
                     Intent intent = new Intent(LoginActivity.this, MainActivity.class);
                     intent.putExtra("campaignName", mCampaign);
                     startActivity(intent);
-                    //TODO http://stackoverflow.com/questions/16419627/making-an-activity-appear-only-once-when-the-app-is-started
                     finish();
                 } else {
                     try {
@@ -459,6 +546,12 @@ public class LoginActivity extends AppCompatActivity implements NavigationView.O
             }
         }
 
+        /**
+         * Guarda un token de sesion junto con el nombre de la campaña al que
+         * corresponde en el fichero determinado para ello.
+         *
+         * @param token the token
+         */
         private void saveSessionToken(String token) {
 
             FileOutputStream fos = null;
@@ -495,14 +588,20 @@ public class LoginActivity extends AppCompatActivity implements NavigationView.O
             }
 
         }
-        @Override
-        /**
-         * @reference http://stackoverflow.com/questions/11165860/asynctask-oncancelled-not-being-called-after-canceltrue/11166026#11166026
+        
+        /* (non-Javadoc)
+         * @see android.os.AsyncTask#onCancelled()
          */
+        @Override
+       
         protected void onCancelled() {
+        	 /**
+             * @reference http://stackoverflow.com/questions/11165860/asynctask-oncancelled-not-being-called-after-canceltrue/11166026#11166026
+             */
             cancelTask();
         }
 
+       
         private void cancelTask() {
             mAuthTask = null;
             loginSucceed = false;

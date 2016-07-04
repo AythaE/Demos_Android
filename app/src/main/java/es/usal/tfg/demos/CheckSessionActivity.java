@@ -1,20 +1,13 @@
+/*
+ * Archivo: CheckSessionActivity.java 
+ * Proyecto: Demos_Android
+ * 
+ * Autor: Aythami Estévez Olivas
+ * Email: aythae@gmail.com
+ * Fecha: 04-jul-2016
+ * Repositorio GitHub: https://github.com/AythaE/Demos_Android
+ */
 package es.usal.tfg.demos;
-
-import android.content.Context;
-import android.content.Intent;
-import android.net.Uri;
-import android.os.AsyncTask;
-import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
-import android.util.Base64;
-import android.util.Log;
-
-import com.google.android.gms.appindexing.Action;
-import com.google.android.gms.appindexing.AppIndex;
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.koushikdutta.async.http.AsyncSSLSocketMiddleware;
-import com.koushikdutta.ion.Ion;
-import com.koushikdutta.ion.Response;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -30,55 +23,85 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.concurrent.ExecutionException;
 
-import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
 
+import com.koushikdutta.async.http.AsyncSSLSocketMiddleware;
+import com.koushikdutta.ion.Ion;
+import com.koushikdutta.ion.Response;
+
+import android.content.Context;
+import android.content.Intent;
+import android.os.AsyncTask;
+import android.os.Bundle;
+import android.support.v7.app.AppCompatActivity;
+import android.util.Base64;
+import android.util.Log;
+
+
+/**
+ * Clase CheckSessionActivity encargada de mostrar una Splash Screen de carga
+ * nada más lanzar la aplicación, durante ella busca si existe un token de 
+ * sesion en el dispositivo y en caso de ser así lo manda al servidor, si este
+ * es autenticado inicia sesión directamente en esa campaña entrando en
+ * {@link MainActivity}, si no lo es o no existe token previo pasa a 
+ * {@link LoginActivity}
+ */
 public class CheckSessionActivity extends AppCompatActivity {
 
-    //Statics fields to try to avoid orientations change bugs (because of recreation of the activity)
+	 //Statics fields to try to avoid orientations change bugs (because of recreation of the activity)
+    /** Response devuelto por la conexión al servidor. */
     private static Response<String> checkSessionResp = null;
+    
+    /** The connection timeout en segundos. */
     private static int CONNECTION_TIMEOUT = 5;
 
+    /** The token file. */
     private static File tokenFile ;
+    
+    /** The campaign name. */
     private static String campaignName;
-    /**
-     * ATTENTION: This was auto-generated to implement the App Indexing API.
-     * See https://g.co/AppIndexing/AndroidStudio for more information.
-     */
-    private GoogleApiClient client;
+    
+	/**
+	 * Crea la actividad cargando la interfaz, el archivo token y lanzando la 
+	 * tarea asincrona de autenticación
+	 * @see android.support.v7.app.AppCompatActivity#onCreate(android.os.Bundle)
+	 */
+	@Override
+	protected void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		setContentView(R.layout.activity_check_session);
+		Log.d(MainActivity.TAG, "Entrando en checkSession");
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_check_session);
-        Log.d(MainActivity.TAG, "Entrando en checkSession");
+		tokenFile = new File(getFilesDir().getAbsolutePath() + "/.token");
 
-         tokenFile = new File(getFilesDir().getAbsolutePath() + "/.token");
-
-        // ATTENTION: This was auto-generated to implement the App Indexing API.
-        // See https://g.co/AppIndexing/AndroidStudio for more information.
-        client = new GoogleApiClient.Builder(this).addApi(AppIndex.API).build();
-
-        UserAuthenticateTask authTask = new UserAuthenticateTask();
-        authTask.execute((Void) null);
-    }
-
-
+		UserAuthenticateTask authTask = new UserAuthenticateTask();
+		authTask.execute((Void) null);
+	}
 
     /**
-     * Represents an asynchronous authentification task used to register
+     * Represents an asynchronous authentification task used to authenticate
      * the user.
      */
     public class UserAuthenticateTask extends AsyncTask<Void, Void, Void> {
+        
+        /* (non-Javadoc)
+         * @see android.os.AsyncTask#doInBackground(java.lang.Object[])
+         */
         @Override
         protected Void doInBackground(Void... params) {
             checkSessionToken();
             return null;
         }
+        
+        /**
+         * Comprueba el token de sesión en segundo plano, para ello lanza una 
+         * petición a authenticate_token en el servidor con el contenido del
+         * fichero token.
+         * 
+         */
         private void checkSessionToken() {
 
 
@@ -95,18 +118,25 @@ public class CheckSessionActivity extends AppCompatActivity {
                     BufferedReader br = new BufferedReader(new FileReader(tokenFile));
                     String line;
                     String token=null, campaña=null;
-                    while ((line = br.readLine()) != null){
-                        if (campaña == null)
-                        {
-                            campaña = new String(line);
-                        }
-                        else {
-                            if (token == null)
-                                token = new String(line);
-                        }
-                        Log.d(MainActivity.TAG, line);
-                    }
-
+                    try {
+	                    while ((line = br.readLine()) != null){
+	                        if (campaña == null)
+	                        {
+	                            campaña = new String(line);
+	                        }
+	                        else {
+	                            if (token == null)
+	                                token = new String(line);
+	                        }
+	                        Log.d(MainActivity.TAG, line);
+	                    }
+                    } catch(Exception e){
+                    	Log.d(MainActivity.TAG, "Error leyendo el archivo token");
+                    } finally {
+						if (br!= null) {
+							br.close();
+						}
+					}
 
                     String campaña64 = Base64.encodeToString(campaña.getBytes("UTF-8"), Base64.NO_WRAP);
                     campaignName = campaña;
@@ -139,16 +169,24 @@ public class CheckSessionActivity extends AppCompatActivity {
                 Log.d(MainActivity.TAG, "Archivo no existe");
                 Intent intent = new Intent(CheckSessionActivity.this, LoginActivity.class);
                 startActivity(intent);
-                //TODO http://stackoverflow.com/questions/16419627/making-an-activity-appear-only-once-when-the-app-is-started
                 finish();
             }
         }
 
+        /**
+         * Comprueba la respuesta del servidor usando el atributo 
+         * {@link CheckSessionActivity#checkSessionResp}. Si la respuesta es 
+         * correcta se pasa a {@link MainActivity}, en caso contrario se 
+         * muestra el error en el Log de la aplicación, se borra el token
+         * por ser invalido y se va a {@link LoginActivity}
+         *
+         * @param e posible excepcion producida en la conexión
+         */
         private void checkResponse(Exception e) {
             if (e != null || (checkSessionResp != null && checkSessionResp.getHeaders().code() != 200)) {
 
                 Log.d(MainActivity.TAG, "Respuesta incorrecta");
-                //TODO leer error response
+               
 
                 if (e != null) {
                     e.printStackTrace();
@@ -168,7 +206,6 @@ public class CheckSessionActivity extends AppCompatActivity {
                 }
                 Intent intent = new Intent(CheckSessionActivity.this, LoginActivity.class);
                 startActivity(intent);
-                //TODO http://stackoverflow.com/questions/16419627/making-an-activity-appear-only-once-when-the-app-is-started
                 finish();
             } else {
                 Log.d(MainActivity.TAG, "Respuesta correcta");
@@ -177,8 +214,7 @@ public class CheckSessionActivity extends AppCompatActivity {
                 intent.putExtra("campaignName", campaignName);
 
                 startActivity(intent);
-                //TODO http://stackoverflow.com/questions/16419627/making-an-activity-appear-only-once-when-the-app-is-started
-                finish();
+                 finish();
             }
         }
 
@@ -188,11 +224,24 @@ public class CheckSessionActivity extends AppCompatActivity {
 
 
 
+    /**
+     * Enseña a la aplicación a confiar en los certificados firmados con el 
+     * certificado raiz de la autoridad de certificación creada en el servidor,
+     * dicho certificado raiz, que es autofirmado, se encuentra en el directorio
+     * raw.
+     * 
+     * <p>
+     * Por seguridad se invoca antes de cada conexion al servidor, debido a que
+     *  aunque se haya confiado en el certificado es posible que pierda al pasar
+     *  a segundo plano la aplicación por ejemplo.
+     *
+     * @param context contexto que quiere confiar en el certificado
+     */
     public static void trustServerCertificate(Context context) {
         try {
             CertificateFactory cf = CertificateFactory.getInstance("X.509");
             //Load cert file stored in \app\src\main\res\raw
-            InputStream caInput = context.getResources().openRawResource(R.raw.server_ca); //TODO Seleccionar el certificado correcto
+            InputStream caInput = context.getResources().openRawResource(R.raw.server_ca); 
 
             Certificate ca = cf.generateCertificate(caInput);
             caInput.close();
@@ -212,11 +261,9 @@ public class CheckSessionActivity extends AppCompatActivity {
             // Create an SSLContext that uses our TrustManager
             SSLContext sslContext = SSLContext.getInstance("TLS");
             sslContext.init(null, wrappedTrustManagers, null);
-            //sslContext.init(null, tmf.getTrustManagers(), null);
-
+            
             AsyncSSLSocketMiddleware sslMiddleWare = Ion.getDefault(context).getHttpClient().getSSLSocketMiddleware();
             sslMiddleWare.setTrustManagers(wrappedTrustManagers);
-            //sslMiddleWare.setHostnameVerifier(getHostnameVerifier());
             sslMiddleWare.setSSLContext(sslContext);
 
         } catch (Exception e) {
@@ -224,18 +271,14 @@ public class CheckSessionActivity extends AppCompatActivity {
         }
     }
 
-    public HostnameVerifier getHostnameVerifier() {
-        return new HostnameVerifier() {
-            @Override
-            public boolean verify(String hostname, SSLSession session) {
-                return true;
-                // or the following:
-                // HostnameVerifier hv = HttpsURLConnection.getDefaultHostnameVerifier();
-                // return hv.verify("www.yourserver.com", session);
-            }
-        };
-    }
+    
 
+    /**
+     * Gets the wrapped trust managers.
+     *
+     * @param trustManagers the trust managers
+     * @return the wrapped trust managers
+     */
     public static TrustManager[] getWrappedTrustManagers(TrustManager[] trustManagers) {
         final X509TrustManager originalTrustManager = (X509TrustManager) trustManagers[0];
         return new TrustManager[]{
@@ -272,43 +315,5 @@ public class CheckSessionActivity extends AppCompatActivity {
     }
 
 
-    @Override
-    public void onStart() {
-        super.onStart();
-
-        // ATTENTION: This was auto-generated to implement the App Indexing API.
-        // See https://g.co/AppIndexing/AndroidStudio for more information.
-        client.connect();
-        Action viewAction = Action.newAction(
-                Action.TYPE_VIEW, // TODO: choose an action type.
-                "CheckSession Page", // TODO: Define a title for the content shown.
-                // TODO: If you have web page content that matches this app activity's content,
-                // make sure this auto-generated web page URL is correct.
-                // Otherwise, set the URL to null.
-                Uri.parse("http://host/path"),
-                // TODO: Make sure this auto-generated app URL is correct.
-                Uri.parse("android-app://es.usal.tfg.demos/http/host/path")
-        );
-        AppIndex.AppIndexApi.start(client, viewAction);
-    }
-
-    @Override
-    public void onStop() {
-        super.onStop();
-
-        // ATTENTION: This was auto-generated to implement the App Indexing API.
-        // See https://g.co/AppIndexing/AndroidStudio for more information.
-        Action viewAction = Action.newAction(
-                Action.TYPE_VIEW, // TODO: choose an action type.
-                "CheckSession Page", // TODO: Define a title for the content shown.
-                // TODO: If you have web page content that matches this app activity's content,
-                // make sure this auto-generated web page URL is correct.
-                // Otherwise, set the URL to null.
-                Uri.parse("http://host/path"),
-                // TODO: Make sure this auto-generated app URL is correct.
-                Uri.parse("android-app://es.usal.tfg.demos/http/host/path")
-        );
-        AppIndex.AppIndexApi.end(client, viewAction);
-        client.disconnect();
-    }
+    
 }

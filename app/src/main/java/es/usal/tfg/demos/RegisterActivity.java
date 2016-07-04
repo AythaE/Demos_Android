@@ -1,9 +1,33 @@
+/*
+ * Archivo: RegisterActivity.java 
+ * Proyecto: Demos_Android
+ * 
+ * Autor: Aythami Estévez Olivas
+ * Email: aythae@gmail.com
+ * Fecha: 04-jul-2016
+ * Repositorio GitHub: https://github.com/AythaE/Demos_Android
+ */
 package es.usal.tfg.demos;
+
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.concurrent.ExecutionException;
+
+import com.koushikdutta.ion.Ion;
+import com.koushikdutta.ion.Response;
 
 import android.app.DatePickerDialog;
 import android.content.Context;
 import android.content.Intent;
-import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.design.widget.NavigationView;
@@ -28,58 +52,75 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.google.android.gms.appindexing.Action;
-import com.google.android.gms.appindexing.AppIndex;
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.koushikdutta.ion.Ion;
-import com.koushikdutta.ion.Response;
-
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.sql.Ref;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.concurrent.ExecutionException;
 
 /**
- * A login screen that offers login via email/password.
+ * Clase RegisterActivity que controla una ventana con los campos necesarios 
+ * para registrar una campaña .
  */
 public class RegisterActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener {
 
 
-    /**
-     * Keep track of the login task to ensure we can cancel it if requested.
+	/**
+     * Instancia de la tarea que realizara la peticion de registro de manera 
+     * asíncrona.
      */
-    private UserRegisterTask mRegisterTask = null;
+    private static UserRegisterTask mRegisterTask = null;
 
     // UI references.
+    
+    /** El campo de texto de la campaña. */
     private EditText mCampaignView;
+    
+    /** El campo de texto de la contraseña. */
     private EditText mPasswordView;
+    
+    /** El campo de texto de verificación de la contraseña. */
     private EditText mPasswordView2;
+    
+    /** El campo de texto de la fecha de borrado. */
     private EditText mDateView;
+    
+    /** The navigation view. */
     private NavigationView navigationView;
 
+    /** The {@link DatePickerDialog} de selección de fecha. */
     private static DatePickerDialog datePickerDialog;
 
+
+    /** El {@link AlertDialog} de registro. */
+    private static AlertDialog registerDialog;
+
+    /** 
+     * Flag para controlar cuando se muesta el dialogo de seleccion de fecha
+     * de borrado para poder mostrarlo en caso de que se gire la pantalla, lo
+     * que re-instancia esta clase perdiendose todos los campos no estáticos. 
+     */
     private static boolean showingDateDialog = false;
+
+    /**
+     * Flag para controlar cuando se muesta el dialogo registro para poder
+     * mostrarlo en caso de que se gire la pantalla, lo que re-instancia esta
+     * clase perdiendose todos los campos no estáticos.
+     */
+    private static boolean showingRegisterDialog = false;
+    
+    /** The date format. */
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
 
     //Statics fields to try to avoid orientations change bugs (because of recreation of the activity)
+    
+    /** Response devuelto por la conexión al servidor. */
     private static Response<String> registerResp = null;
+    
+    /** The connection timeout, 20 segundos*/
     private static int CONNECTION_TIMEOUT = 20;
-    /**
-     * ATTENTION: This was auto-generated to implement the App Indexing API.
-     * See https://g.co/AppIndexing/AndroidStudio for more information.
-     */
-    private GoogleApiClient client;
+    
 
+    /**
+     * 
+     * Carga y configura la UI
+     * @see android.support.v7.app.AppCompatActivity#onCreate(android.os.Bundle)
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -169,12 +210,23 @@ public class RegisterActivity extends AppCompatActivity implements NavigationVie
             }
         });
 
+        registerDialog = new AlertDialog.Builder(RegisterActivity.this).create();
+
+        //TODO check al girar pantalla
+        registerDialog.setView(getLayoutInflater().inflate(R.layout.uploading_dialog, null));
+        registerDialog.setTitle(R.string.register_dialog_title);
+        registerDialog.setCancelable(false);
+        registerDialog.setCanceledOnTouchOutside(false);
+
         Log.d(MainActivity.TAG, "Entrando en RegisterAtivity");
-        // ATTENTION: This was auto-generated to implement the App Indexing API.
-        // See https://g.co/AppIndexing/AndroidStudio for more information.
-        client = new GoogleApiClient.Builder(this).addApi(AppIndex.API).build();
+        
     }
 
+    /** 
+     * Al presionar el boton back si el {@link DrawerLayout} esta abierto lo
+     * cierra, en caso contrario hace lo que haría por defecto
+     * @see android.support.v4.app.FragmentActivity#onBackPressed()
+     */
     @Override
     public void onBackPressed() {
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout_register);
@@ -184,10 +236,12 @@ public class RegisterActivity extends AppCompatActivity implements NavigationVie
             super.onBackPressed();
         }
     }
+    
     /**
-     * Attempts to register the account specified by the login form.
-     * If there are form errors (invalid email, missing fields, etc.), the
-     * errors are presented and no actual register attempt is made.
+     * Intenta registrar la campaña especificada en el formulario de 
+     * registro, comprueba los posibles errores en los campos y si todo es 
+     * correcto instancia y lanza {@link RegisterActivity#mRegisterTask} 
+     * que efectúa la conexión con el servidor.
      */
     private void attemptRegister() {
         if (mRegisterTask != null) {
@@ -266,72 +320,65 @@ public class RegisterActivity extends AppCompatActivity implements NavigationVie
             // form field with an error.
             focusView.requestFocus();
         } else {
-            // Show a progress spinner, and kick off a background task to
-            // perform the user login attempt.
-            //showProgress(true);
+            
             mRegisterTask = new UserRegisterTask(campaign, password, dateStr);
             mRegisterTask.execute((Void) null);
         }
     }
 
+    /**
+     * Comprueba si una campaña es valida, esta se considera valida si contiene
+     *  dos o más caracters alfa numéricos, o los signos ., _ y -.
+     *
+     * @param campaign cadena de caracteres introducida en 
+     * {@link RegisterActivity#mCampaignView} a comprobar
+     * @return true, si la campaña es valida
+     */
     private boolean isCampaignValid(String campaign) {
-        //TODO: Replace this with your own logic
 
         return campaign.length() >= 2 && campaign.matches("^[a-zA-Z0-9]+[a-zA-Z0-9\\._-]*$");
     }
 
-    private boolean isDateValid(Date date) {
-        //TODO: Replace this with your own logic
 
+    /**
+     * Comprueba si la fecha es valida, esta se considera valida si es 
+     * posterior a la fecha actual del dispositivo
+     *
+     *
+     * @param date fecha introducida en {@link RegisterActivity#mDateView}
+     * @return true, si la comprobación es valida
+     */
+    private boolean isDateValid(Date date) {
 
         return date.after(new Date());
     }
+    
+    /**
+     * Comprueba si una contraseña es valida, esta se considera valida si 
+     * contiene al menos 8 caracteres que pueden ser: letras (mayusculas o 
+     * minusculas), numeros, puntos, asteriscos, #,...
+     *
+     *
+     * @param password la contraseña introducida en 
+     * {@link RegisterActivity#mPasswordView}
+     * @return true, if is password valid
+     */
     private boolean isPasswordValid(String password) {
-        //TODO: Replace this with your own logic
+        
         return password.length() >= 8 && password.matches("^[a-zA-Z0-9\\.\\*#%&()=+:;,<>_!?-]*$");
     }
 
-    @Override
-    public void onStart() {
-        super.onStart();
+    
 
-        // ATTENTION: This was auto-generated to implement the App Indexing API.
-        // See https://g.co/AppIndexing/AndroidStudio for more information.
-        client.connect();
-        Action viewAction = Action.newAction(
-                Action.TYPE_VIEW, // TODO: choose an action type.
-                "Register Page", // TODO: Define a title for the content shown.
-                // TODO: If you have web page content that matches this app activity's content,
-                // make sure this auto-generated web page URL is correct.
-                // Otherwise, set the URL to null.
-                Uri.parse("http://host/path"),
-                // TODO: Make sure this auto-generated app URL is correct.
-                Uri.parse("android-app://es.usal.tfg.demos/http/host/path")
-        );
-        AppIndex.AppIndexApi.start(client, viewAction);
-    }
-
-    @Override
-    public void onStop() {
-        super.onStop();
-
-        // ATTENTION: This was auto-generated to implement the App Indexing API.
-        // See https://g.co/AppIndexing/AndroidStudio for more information.
-        Action viewAction = Action.newAction(
-                Action.TYPE_VIEW, // TODO: choose an action type.
-                "Register Page", // TODO: Define a title for the content shown.
-                // TODO: If you have web page content that matches this app activity's content,
-                // make sure this auto-generated web page URL is correct.
-                // Otherwise, set the URL to null.
-                Uri.parse("http://host/path"),
-                // TODO: Make sure this auto-generated app URL is correct.
-                Uri.parse("android-app://es.usal.tfg.demos/http/host/path")
-        );
-        AppIndex.AppIndexApi.end(client, viewAction);
-        client.disconnect();
-    }
-
-
+  
+    /**
+     * Al entrar en primer plano selecciona el campo Register Item de la
+     * {@link NavigationView} y además comprueba si se estaba mostrando el 
+     * dialogo {@link RegisterActivity#datePickerDialog} o
+     * {@link RegisterActivity#registerDialog}, en cuyo caso se
+     * despliegan.
+     * @see android.support.v4.app.FragmentActivity#onResume()
+     */
     @Override
     protected void onResume() {
         super.onResume();
@@ -342,9 +389,22 @@ public class RegisterActivity extends AppCompatActivity implements NavigationVie
             showingDateDialog = false;
         }
 
+        if (showingRegisterDialog){
+            registerDialog.show();
+            showingRegisterDialog= false;
+        }
 
     }
 
+    /** 
+	 * Invocado al destruir la actividad, comprueba si se estaba mostrando el 
+     * dialogo {@link RegisterActivity#datePickerDialog} o
+     * {@link RegisterActivity#registerDialog}, en cuyo caso lo
+     * fija el flag {@link RegisterActivity#showingDateDialog} o
+     * {@link RegisterActivity#showingRegisterDialog} a true para que se muestre
+     * cuando vuelva y cierra el dialogo actual.
+     * @see android.support.v7.app.AppCompatActivity#onDestroy()
+     */
     @Override
     protected void onDestroy() {
 
@@ -353,9 +413,19 @@ public class RegisterActivity extends AppCompatActivity implements NavigationVie
             showingDateDialog = true;
         }
 
+        if (registerDialog.isShowing()){
+            registerDialog.dismiss();
+            showingRegisterDialog = true;
+        }
+
         super.onDestroy();
     }
-
+    
+    /** 
+     * Controla las acciones a tomar al seleccionar los distintos campos de la 
+     * {@link NavigationView} que permiten cambiar entre actividades
+     * @see android.support.design.widget.NavigationView.OnNavigationItemSelectedListener#onNavigationItemSelected(android.view.MenuItem)
+     */
     @Override
     public boolean onNavigationItemSelected(MenuItem item) {
         // Handle navigation view item clicks here.
@@ -398,49 +468,76 @@ public class RegisterActivity extends AppCompatActivity implements NavigationVie
     }
 
     /**
-     * Represents an asynchronous registration task used to register
-     * the user.
+     * Representa la tarea encargada de conexión al servidor, esta lanza una 
+     * peticion de registro al servidor y comprueba su respuesta. 
+     * 
      */
     public class UserRegisterTask extends AsyncTask<Void, Void, Boolean> {
 
+    	/** La campaña. */
         private final String mCampaign;
+        
+        /** La contraseña. */
         private final String mPassword;
+        
+        /** La fecha de borrado. */
         private final String mDeleteDate;
-        private final AlertDialog registerDialog;
 
+        /** El mensaje {@link Toast}. */
         private String toastMessage;
 
+        /**
+         * Checks if is register succeed.
+         *
+         * @return true, if is register succeed
+         */
         public boolean isRegisterSucceed() {
             return registerSucceed;
         }
 
+        /**
+         * Sets the register succeed.
+         *
+         * @param regSuscceed the new register succeed
+         */
         public void setRegisterSucceed(boolean regSuscceed) {
             this.registerSucceed = regSuscceed;
         }
 
+        /** Flag para determinar si el registro ha sido correcto o no. */
         private boolean registerSucceed = false;
 
+        /**
+         * Crea una nueva instancia de esta clase.
+         *
+         * @param campaign the campaign
+         * @param password the password
+         */
         UserRegisterTask(String campaign, String password, String deleteDate) {
             mCampaign = campaign;
             mPassword = password;
             mDeleteDate = deleteDate;
-            registerDialog = new AlertDialog.Builder(RegisterActivity.this).create();
 
-            //TODO check al girar pantalla
-            registerDialog.setView(getLayoutInflater().inflate(R.layout.uploading_dialog, null));
-            registerDialog.setTitle(R.string.register_dialog_title);
-            registerDialog.setCancelable(false);
-            registerDialog.setCanceledOnTouchOutside(false);
 
 
         }
 
+        /* (non-Javadoc)
+         * @see android.os.AsyncTask#onPreExecute()
+         */
         @Override
         protected void onPreExecute() {
             registerDialog.show();
         }
 
 
+        /**
+         * Realiza la conexion al servidor quedandose bloqueado hasta que este
+         * responda. Para ello codifica en Base64 la campaña, la contraseña y 
+         * la fecha de borrado, enviandolas generando un formulario 
+         * application/x-www-form-urlencoded
+         * @see android.os.AsyncTask#doInBackground(java.lang.Object[])
+         */
         @Override
         protected Boolean doInBackground(Void... params) {
 
@@ -475,6 +572,15 @@ public class RegisterActivity extends AppCompatActivity implements NavigationVie
             return isRegisterSucceed();
         }
 
+        /**
+         * Comprueba la respuesta del servidor usando el atributo 
+         * {@link RegisterActivity#registerResp}. Si la respuesta es correcta
+         * fija el flag {@link UserRegisterTask#registerSucceed} a true, en 
+         * caso contrario a false. Tambien fija el mensaje que mostrará en un 
+         * {@link Toast} al usuario indicandole el resultado del registro
+         *
+         * @param e posible excepcion producida en la conexión
+         */
         private void checkResponse(Exception e) {
             if (e != null || (registerResp != null && registerResp.getHeaders().code() != 200)) {
 
@@ -483,14 +589,17 @@ public class RegisterActivity extends AppCompatActivity implements NavigationVie
                     e.printStackTrace();
                 }
                 if (registerResp != null) {
-                    //TODO leer error response
+                   
                     Log.d(MainActivity.TAG + " response message", registerResp.getHeaders().message());
 
                     if ((400 <= registerResp.getHeaders().code()) &&
                             (500 > registerResp.getHeaders().code())) {
-
-                        byte[] datos = Base64.decode(registerResp.getResult(), Base64.NO_WRAP);
-                        toastMessage = new String(datos);
+                    	try {
+                            byte [] datos = Base64.decode( registerResp.getResult(),Base64.NO_WRAP);
+                            toastMessage = new String(datos);
+                    	} catch (Exception e2){
+                    		toastMessage = getString(R.string.toastWrongRegisterResult);
+                    	}
                     } else {
                         toastMessage = getString(R.string.toastWrongRegisterResult);
                     }
@@ -507,6 +616,17 @@ public class RegisterActivity extends AppCompatActivity implements NavigationVie
             }
         }
 
+        /**
+         * Hace desaparecer el dialogo {@link UserRegisterTask#registerDialog}, 
+         * muestra un {@link Toast} con el resultado de la operación al usuario
+         * , si el flag {@link UserRegisterTask#registerSucceed} es true guarda
+         *  el token recibido en el método 
+         * {@link UserRegisterTask#saveSessionToken(String)} y pasa a 
+         * {@link MainActivity}, en caso contrario muestra el error en Log 
+         * y finaliza.
+         * 
+         * @see android.os.AsyncTask#onPostExecute(java.lang.Object)
+         */
         @Override
         protected void onPostExecute(final Boolean success) {
             mRegisterTask = null;
@@ -529,8 +649,7 @@ public class RegisterActivity extends AppCompatActivity implements NavigationVie
                     Intent intent = new Intent(RegisterActivity.this, MainActivity.class);
                     intent.putExtra("campaignName", mCampaign);
                     startActivity(intent);
-                    //TODO http://stackoverflow.com/questions/16419627/making-an-activity-appear-only-once-when-the-app-is-started
-                    finish();
+                      finish();
                 } else {
                     try {
                         String responseResult = new String(Base64.decode(registerResp.getResult(), Base64.NO_WRAP));
@@ -541,6 +660,12 @@ public class RegisterActivity extends AppCompatActivity implements NavigationVie
             }
         }
 
+        /**
+         * Guarda un token de sesion junto con el nombre de la campaña al que
+         * corresponde en el fichero determinado para ello.
+         *
+         * @param token the token
+         */
         private void saveSessionToken(String token) {
 
             FileOutputStream fos = null;
@@ -578,16 +703,16 @@ public class RegisterActivity extends AppCompatActivity implements NavigationVie
 
         }
 
-        /**
-         * @reference http://stackoverflow.com/questions/11165860/asynctask-oncancelled-not-being-called-after-canceltrue/11166026#11166026
-         */
-
 
         @Override
         protected void onCancelled() {
+        	/*
+             * @reference http://stackoverflow.com/questions/11165860/asynctask-oncancelled-not-being-called-after-canceltrue/11166026#11166026
+             */
             cancelTask();
         }
 
+        
         private void cancelTask() {
             mRegisterTask = null;
             registerSucceed = false;
