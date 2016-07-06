@@ -51,32 +51,32 @@
     <string name="error_invalid_sign_paper">El número ha de ser positivo</string>
 
     <string name="preinstructions_main"><b>Para enviar una firma introduzca el número de la hoja de firmas
-        en la que se encuentre esta y pulse el boton verde con el simbolo +.</b></string>
+        en la que se encuentre esta y pulse el botón verde con el símbolo +.</b></string>
     <string name="postinstructions_main">Tras esto se le pedirá hacer una foto a la parte frontal del DNI (la que contiene la foto).
         A continuación gire el DNI y haga lo mismo con la otra cara.
-        Aparecerá un dialogo que le mostrara el progreso y resultado de la operación.</string>
+        Aparecerá un diálogo que le mostrará el progreso y resultado de la operación.</string>
 
     <string name="title_instructions">Preguntas frecuentes</string>
     <string name="bad_picture_instructions"><b>¿Qué hacer si mis fotos son rechazadas?</b>\n\nHaga la
         fotografía del DNI sobre un folio blanco en el esté dibujado el contorno de un DNI para favorecer
-        su reconocimiento.\n\nIntente que la zona del numero de DNI de la parte posterior y la del nombre y
-        apellidos de la posterior estén lo más enfocadas y nitidas posibles. Para ello evite usar flash,
-        las sombras o los brillos y si su camara dispone de enfoque manual apunte a estas zonas por
-        favor.\n\nProcure girar su dispositivo durante un par de segundos antes de realizar la fotografía
-        para evitar que las imagenes queden giradas 90º, lo que puede hacer fallar el proceso de
-        reconocimiento de caracteres.
+        su reconocimiento.\n\nIntente que la zona del número de DNI de la parte posterior y la del nombre y
+        apellidos de la posterior estén lo más enfocadas y nítidas posibles. Para ello evite usar flash,
+        las sombras o los brillos y si su cámara dispone de enfoque manual apunte a estas zonas por
+        favor.\n\nTras iniciar la toma de fotos procure girar su dispositivo durante un par de segundos
+        antes de realizar la fotografía para evitar que las imágenes puedan quedar giradas 90º, lo que
+        puede hacer fallar el proceso de reconocimiento de caracteres.
     </string>
     <string name="photo_destination_instructions"><b>¿A dónde van las fotos realizadas?</b>\n\nLas fotos
-        que usted realiza se envian utilizando protocolos seguros a un servidor remoto en el que se
+        que usted realiza se envían utilizando protocolos seguros a un servidor remoto en el que se
         recorta el DNI y se intenta extraer el número así como el nombre y apellidos de
         este.\n\nDicha información, junto con la de su campaña, se almacena encriptada hasta que llega
         la fecha de borrado de la campaña en la cual, automáticamente, se borra toda la información
-        tanto de la campaña como las imagenes de los DNI subidos.
+        tanto de la campaña como las imágenes de los DNI subidos.
     </string>
     <string name="how_to_retrieve_instructions"><b>¿Cómo recuperar las firmas para presentarlas?</b>\n\nPara
         recuperar el listado de firmas con las fotografías de los DNIs y el resultado del reconocimiento
-        de las fotografias vaya a la URL https://prodiasv08.fis.usal.es/Demos_Rest/formDownloadQuery.html
-        en cualquier navegador web.\n\nLe aparecerá un mensaje indicandole que no es seguro, por favor añada
+        de las fotografías vaya a la URL https://prodiasv08.fis.usal.es/Demos_Rest/formDownloadQuery.html
+        en cualquier navegador web.\n\nLe aparecerá un mensaje indicándole que no es seguro, por favor añada
         una excepción y en la página que se mostrará a continuación introduzca el nombre y contraseña de
         su campaña.\n\nTras esto podrá ver un mensaje informativo con el tiempo y tamaño estimados de la descarga
         así como a donde debe dirigirse para efectuar dicha descarga.
