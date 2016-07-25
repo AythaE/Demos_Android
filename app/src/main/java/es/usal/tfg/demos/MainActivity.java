@@ -460,6 +460,11 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
      *  el siguiente formato "ddMMyyyy_HHmmss_SSSS", ver 
      *  {@link SimpleDateFormat} para más informacióm.
      *
+     * <p>
+     * TODO Este metodo con FileProvider crea una copia de las fotografias tomadas en 
+     * un directorio de la tarjeta SD. Si se escribe en la tarjeta SD directamente
+     * no es necesario el FileProvider y se pueden borrar las fotos de forma adecuada.
+     * 
      * @return the output media file
      */
     private File getOutputMediaFile() {
